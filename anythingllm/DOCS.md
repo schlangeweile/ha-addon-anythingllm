@@ -9,16 +9,18 @@ as DashScope/Ollama, and more).
 ## How it works
 
 The add-on is a single service based on the official multi-arch
-AnythingLLM image. Inside the container the upstream entrypoint runs
-the web app and its document collector; the embedded SQLite database
-and the LanceDB vector store require no external services.
+AnythingLLM image, plus an optional experimental local patch for
+DeepSeek's Search/Fetch APIs (off by default). Inside the container the
+upstream entrypoint runs the web app and its document collector; the
+embedded SQLite database and the LanceDB vector store require no external
+services.
 
-| Aspect   | Detail                                           |
-| -------- | ------------------------------------------------ |
-| Web UI   | port 3001 (mapped to 3001 by default)            |
-| Storage  | everything persists on the add-on `/data` volume |
-| Database | embedded SQLite + LanceDB (no external DB)       |
-| Config   | in the web UI only (stored in the database)      |
+| Aspect   | Detail                                                      |
+| -------- | ----------------------------------------------------------- |
+| Web UI   | port 3001 (mapped to 3001 by default)                       |
+| Storage  | everything persists on the add-on `/data` volume            |
+| Database | embedded SQLite + LanceDB (no external DB)                  |
+| Config   | web UI, plus two optional DeepSeek toggles in the add-on config |
 
 ## Requirements
 
@@ -56,21 +58,65 @@ Two different features are easy to confuse:
 - **Web Search** (agent skill) uses a web-search (SERP) provider
   configured under Agent Skills, e.g. Serper, SerpAPI, Brave, Bing,
   SearXNG, Tavily or DuckDuckGo. This is a plain HTTP API call and works
-  in the add-on.
+  in the add-on. Alternatively, the optional `deepseek_search` toggle
+  uses DeepSeek's own Search API (see below).
 - **Scrape websites / URL ingestion** renders the page with the Chromium
   bundled in the upstream image. This add-on intentionally does not
   enable Chromium: the bundled browser is from the Chrome 119 era (late
   2023) and the container cannot provide its sandbox. Static HTML pages
   are still fetched through the collector's HTTP fallback, but
   JavaScript-heavy pages and the "Website Depth" crawler do not work.
-  Those attempts show a Puppeteer error in the collector log.
+  Those attempts show a Puppeteer error in the collector log. The
+  optional `deepseek_fetch` toggle lets the agent's "Scrape websites"
+  skill fetch single URLs through DeepSeek's Fetch API instead.
 
 The reduced feature set is deliberate: the alternative would be running an
 outdated Chromium without a sandbox as root. The SERP-based Web Search
 skill, model providers with server-side search (for example Perplexity or
-OpenRouter `:online` models) and search MCP servers are unaffected. If you
-don't need URL scraping, disable the built-in "Scrape websites" skill in
-the agent settings so the agent does not select the limited browser path.
+OpenRouter `:online` models) and search MCP servers are unaffected. The
+optional DeepSeek patch below is the one exception: it uses DeepSeek's
+HTTP APIs, not the local browser. If you don't need browser-based URL
+scraping, disable the built-in "Scrape websites" skill (unless you use
+`deepseek_fetch`).
+
+### Optional: DeepSeek Search and Fetch (experimental local patch)
+
+Upstream AnythingLLM 1.18.0 has no DeepSeek web-search provider, so this
+add-on image contains a small local patch (the image is therefore no
+longer purely "thin" for this feature). Both toggles are **off by
+default** and live in the add-on's **Configuration** tab:
+
+- `deepseek_search` - the agent's **Web Search** skill uses DeepSeek's
+  in-house Search API instead of the built-in SERP provider. It works
+  with `deepseek-flash` (the Search API is model-independent), but only
+  in agent mode.
+- `deepseek_fetch` - the agent's **"Scrape websites"** skill fetches a
+  single URL through DeepSeek's Fetch API (Markdown) instead of the local
+  Chromium. This is a per-URL fetch, not a crawler. The workspace's
+  "Add URL" data source and "Website Depth" still use the collector, and
+  if the Fetch call fails the collector path is tried.
+
+Prerequisites and notes:
+
+1. Configure DeepSeek as an LLM provider (at least once) so
+   `DEEPSEEK_API_KEY` is written to `/data/.env`; use `deepseek-flash` or
+   `deepseek-v4-pro` as the model. The Search/Fetch calls reuse this key.
+   For advanced setups the key can also be added to `/data/.env` manually.
+2. Enable the desired toggles, save the add-on configuration, and restart
+   the add-on if the toggles do not take effect immediately.
+3. Enable the relevant agent skill (Web Search and/or Scrape websites).
+   While `deepseek_search` is enabled, the built-in provider dropdown
+   (which may still show You.com) is bypassed; disable the toggle to use
+   the built-in provider again.
+4. Agent mode only: normal chat without the agent has no DeepSeek search.
+5. Billing and privacy: DeepSeek charges **$0.75 per 1,000 successful
+   Search/Fetch requests** (plus model tokens); search queries and fetched
+   URLs are sent to DeepSeek.
+
+This is a local stopgap until upstream adds a DeepSeek provider. The patch
+script fails the image build if the pinned upstream version or one of its
+anchors changes; when upstream supports DeepSeek Search natively, the
+patch and its two options can be removed.
 
 ## Where your data lives
 
@@ -97,6 +143,9 @@ Dockerfile.
    - Native provider presets are also available.
 4. Optional: configure **Embedding Preferences** for the knowledge base
    (RAG). Without embeddings, plain chat still works.
+5. Optional: configure DeepSeek as an LLM provider once, then enable
+   `deepseek_search` and/or `deepseek_fetch` in the add-on's
+   **Configuration** tab (see "Optional: DeepSeek Search and Fetch").
 
 ## Multiple users (household setup)
 
@@ -114,8 +163,11 @@ Upload documents (PDF, Word, CSV, text, …) into a workspace and embed
 them. Embeddings run through the provider configured under Embedding
 Preferences; vectors are stored locally in LanceDB on `/data`.
 
-URLs as data sources are limited to static HTML pages (see "Web search
-and web pages"); use document upload for JavaScript-heavy sites.
+URLs as data sources (workspace "Add URL") are limited to static HTML
+pages (see "Web search and web pages"); use document upload for
+JavaScript-heavy sites. The optional DeepSeek Fetch toggle applies to the
+agent's "Scrape websites" skill, not to workspace URL ingestion or
+"Website Depth".
 
 ## Local models / built-in LLM
 
@@ -146,11 +198,19 @@ Ollama server on capable hardware.
   CPU for the 1.18.0 image, so this should not happen - if it does,
   please open an issue in the add-on repository with the log excerpt.
 - **Adding a URL fails / log shows `Could not find Chrome`, `No usable
-  sandbox` or `Running as root without --no-sandbox`**: expected - the
-  browser is intentionally disabled (see "Web search and web pages").
-  Static pages may still work through the HTTP fallback. Use document
-  upload, the Web Search skill, a model with server-side search or a
-  search MCP server; disable the "Scrape websites" agent skill.
+  sandbox` or `Running as root without --no-sandbox`**: expected for the
+  workspace URL data source and "Website Depth" - the browser is
+  intentionally disabled (see "Web search and web pages"). Static pages
+  may still work through the HTTP fallback. If `deepseek_fetch` is
+  enabled, the agent's "Scrape websites" skill uses DeepSeek Fetch for
+  single URLs instead; the workspace URL ingestion and Website Depth
+  still use the collector and show the Puppeteer error.
+- **DeepSeek Search/Fetch is not used**: enable the matching toggle in the
+  add-on's Configuration tab, make sure `DEEPSEEK_API_KEY` is in the
+  runtime `.env` (configure DeepSeek as an LLM provider once; restart the
+  add-on if the key was just added), and use the agent mode. While
+  `deepseek_search` is enabled, the built-in Web Search provider dropdown
+  is bypassed.
 - **Cannot write to /data**: the add-on runs the app as root inside the
   container on purpose (the persistent volume is root-owned); if you
   changed the image, keep the `USER root` directive.

@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.18.0-ha3
+
+- Experimental local patch (not upstream): optional **DeepSeek Search and
+  Fetch** support. Upstream AnythingLLM 1.18.0 has no DeepSeek web-search
+  provider, so the image now patches the server at build time
+  (`patches/`):
+  - `deepseek-search` calls DeepSeek's in-house Search API
+    (`POST /v1/tools/search`), maps the results to the provider format and
+    reports citations. It works with `deepseek-flash` because the Search
+    API is model-independent, and reuses `DEEPSEEK_API_KEY`.
+  - an optional DeepSeek Fetch path (`POST /v1/tools/fetch`) lets the
+    agent's "Scrape websites" skill read a single URL as Markdown instead
+    of using the local Chromium. It is not a crawler; workspace URL
+    ingestion and "Website Depth" still use the collector.
+- New add-on options `deepseek_search` and `deepseek_fetch` (both default
+  off) plus translations. While `deepseek_search` is enabled it overrides
+  the built-in Web Search provider (the agent-skill UI may still show
+  You.com). The feature is agent-mode only.
+- The patcher fails the build if the pinned upstream version (`1.18.0`)
+  or one of its anchors changes. The image is therefore no longer purely
+  "thin" for this feature; an upstream provider is the clean long-term
+  path and the patch can be removed when it lands.
+- Tests: patched image built successfully; a mock DeepSeek API exercised
+  the Search helper, the Fetch helper, `CollectorApi#getLinkContent` and
+  the `web-browsing` provider override; the app booted with `/api/ping`
+  200. No real DeepSeek key was used for the test.
+- Docs: README and DOCS describe the options, prerequisites, limits,
+  billing/privacy and the upstream status.
+
 ## 1.18.0-ha2
 
 - Add-on config and documentation update only - the bundled AnythingLLM

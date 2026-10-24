@@ -1,3 +1,13 @@
-configuration: {}
+configuration:
+  deepseek_search:
+    name: DeepSeek web search
+    description: >-
+      Use DeepSeek's in-house Search API for the agent's Web Search skill.
+      Requires DEEPSEEK_API_KEY (configure the DeepSeek provider first).
+  deepseek_fetch:
+    name: DeepSeek page fetch
+    description: >-
+      Use DeepSeek's Fetch API for the agent's "Scrape websites" skill instead
+      of the local Chromium. Requires DEEPSEEK_API_KEY.
 network:
   3001/tcp: AnythingLLM web interface

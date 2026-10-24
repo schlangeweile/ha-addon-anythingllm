@@ -11,7 +11,9 @@ It targets devices like the **Hardkernel Odroid N2+** and Raspberry Pi
 4/5 (aarch64) as well as x86-64 machines. The add-on is a thin layer on
 the official multi-arch AnythingLLM image: no external database, no
 object storage, no extra services - SQLite and the LanceDB vector store
-are embedded, and all state persists on the add-on's data volume.
+are embedded, and all state persists on the add-on's data volume. The
+image also contains an optional, experimental local patch for DeepSeek's
+Search/Fetch APIs (off by default, see below).
 
 > **Status:** experimental, but verified. The arm64 image passed a static
 > LSE-atomics scan and ARMv8.0 runtime emulation (safe for Odroid N2+ /
@@ -20,9 +22,10 @@ are embedded, and all state persists on the add-on's data volume.
 > persistence across container recreation). Measured RAM: ~310 MiB idle /
 > ~315 MiB under load on amd64. Final confirmation on real Odroid N2+
 > hardware is still pending - see the add-on changelog for details.
-> The add-on layer is at **1.18.0-ha2** (consistent cold backups, Open Web
-> UI button, documentation fixes); the bundled AnythingLLM image is
-> unchanged from 1.18.0.
+> The add-on layer is at **1.18.0-ha3** (consistent cold backups, Open Web
+> UI button, documentation fixes, and an optional experimental DeepSeek
+> Search/Fetch patch); the bundled AnythingLLM image is unchanged from
+> 1.18.0.
 
 | Architecture | Status |
 | ------------ | ------ |
@@ -43,6 +46,12 @@ are embedded, and all state persists on the add-on's data volume.
 - The agent's **Web Search** skill uses a web-search (SERP) provider over
   HTTP (Serper, SerpAPI, Brave, Bing, SearXNG, Tavily, ...). It works in
   this add-on.
+- **Optional, experimental:** enable `deepseek_search` in the add-on
+  configuration to use DeepSeek's in-house Search API for the agent's Web
+  Search (works with `deepseek-flash`; requires `DEEPSEEK_API_KEY`).
+  `deepseek_fetch` uses DeepSeek's Fetch API for the agent's "Scrape
+  websites" skill instead of the local Chromium. Both are off by default;
+  see the add-on documentation for limits and the upstream status.
 - Browser-based **URL ingestion** and **Website Depth** are intentionally
   not enabled: the bundled Chromium is old and cannot run sandboxed in
   this container. Static HTML pages still work through the collector's
@@ -76,8 +85,10 @@ access are managed from the admin dashboard - no extra tooling.
    the **default** role.
 
 Configuration happens entirely in the web UI (stored in the embedded
-database). See the add-on's **Documentation** tab for details (RAG
-setup, providers, web search vs. web pages, backups, troubleshooting).
+database), apart from the two optional DeepSeek feature toggles in the
+add-on's Configuration tab. See the add-on's **Documentation** tab for
+details (RAG setup, providers, web search vs. web pages, the DeepSeek
+patch, backups, troubleshooting).
 
 ## Updating to a newer AnythingLLM
 
@@ -88,6 +99,11 @@ newer release, bump the `ANYTHINGLLM_VERSION` default in
 supervisor offers the add-on update in the store. CI fails the build if
 those two versions drift apart. Database migrations apply automatically
 on start.
+
+The experimental DeepSeek patch is pinned to AnythingLLM 1.18.0; on an
+upstream bump the patcher must be re-checked (the image build fails if an
+anchor moved). Remove the patch and its two options once upstream supports
+DeepSeek Search natively.
 
 ## Credits
 

@@ -38,6 +38,17 @@ RUN rm -rf /app/server/storage \
  && mkdir -p /collector \
  && ln -s /app/collector/hotdir /collector/hotdir
 
+# Experimental local patch (not upstream): DeepSeek Search/Fetch support.
+# Upstream 1.18.0 has no DeepSeek web-search provider, so this layer adds one
+# plus an optional DeepSeek Fetch path for the agent's scrape skill. Both are
+# off by default and controlled by the add-on options deepseek_search /
+# deepseek_fetch. The patch script fails the build if the pinned upstream
+# version or an anchor changes - re-check patches/ on every upstream bump.
+# Remove this layer once upstream supports DeepSeek Search natively.
+COPY patches /opt/anythingllm-patches
+RUN node /opt/anythingllm-patches/apply.js \
+ && rm -rf /opt/anythingllm-patches
+
 # Privacy: opt out of anonymous telemetry. Upstream 1.18.0 evaluates
 # DISABLE_TELEMETRY (server/utils/telemetry/index.js); the older
 # DISABLE_ANONYMOUS_TELEMETRY name is silently ignored. The entrypoint
