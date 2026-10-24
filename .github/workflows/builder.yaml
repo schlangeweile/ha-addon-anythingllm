@@ -14,8 +14,37 @@ permissions:
   packages: write
 
 jobs:
+  validate:
+    name: Validate version pin
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v6.0.1
+
+      - name: 🔍 Check AnythingLLM version pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          cfg=$(sed -nE 's/^version:[[:space:]]*"([0-9]+\.[0-9]+\.[0-9]+)-ha[0-9]+"$/\1/p' anythingllm/config.yaml)
+          arg=$(sed -nE 's/^ARG ANYTHINGLLM_VERSION=([0-9]+\.[0-9]+\.[0-9]+)$/\1/p' anythingllm/Dockerfile)
+
+          if [ -z "$cfg" ] || [ -z "$arg" ]; then
+            echo "::error::Could not parse the AnythingLLM version (config.yaml='${cfg}', Dockerfile='${arg}'). Expected <X.Y.Z>-ha<N> in config.yaml and a plain <X.Y.Z> ARG in the Dockerfile."
+            exit 1
+          fi
+
+          if [ "$cfg" != "$arg" ]; then
+            echo "::error::Version mismatch: config.yaml pins AnythingLLM '${cfg}', Dockerfile ANYTHINGLLM_VERSION is '${arg}'. Bump both together."
+            exit 1
+          fi
+
+          echo "Version pin OK: AnythingLLM ${cfg}"
+
   build:
     name: Build ${{ matrix.arch }} add-on image
+    needs: validate
     runs-on: ubuntu-latest
     strategy:
       matrix:

@@ -43,3 +43,16 @@ RUN rm -rf /app/server/storage \
 # DISABLE_ANONYMOUS_TELEMETRY name is silently ignored. The entrypoint
 # separately sets CHECKPOINT_DISABLE=1 (Prisma telemetry).
 ENV DISABLE_TELEMETRY=true
+
+# Web scraping / URL ingestion is intentionally NOT enabled (Variant B).
+# The upstream image ships a Chromium from the Chrome 119 era (late 2023).
+# On amd64 Puppeteer cannot find it as root (HOME=/root, browser under
+# /app/.cache/puppeteer); on both architectures Chromium refuses to start as
+# root without --no-sandbox, and SYS_ADMIN does not help because of that root
+# check. Enabling --no-sandbox would run an outdated browser unsandboxed as
+# root, so the add-on leaves it disabled.
+# Consequence: static URLs work via the collector's plain-HTTP fallback;
+# JavaScript-heavy pages and Website Depth do not. The SERP-based Web Search
+# agent skill is unaffected. Do not add HOME/ANYTHINGLLM_CHROMIUM_ARGS or
+# SYS_ADMIN here without upgrading the browser and re-running the ARMv8.0
+# verification; see DOCS.md "Web search and web pages".

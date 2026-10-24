@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.18.0-ha2
+
+- Add-on config and documentation update only - the bundled AnythingLLM
+  image stays at 1.18.0 (the 1.18.0-ha1 ARMv8.0 scan and smoke-test results
+  still apply).
+- Backups: set `backup: cold`. The current Supervisor defaults to hot
+  backups, which would copy the live SQLite database and LanceDB store
+  while the app is writing. Cold mode stops the add-on briefly and keeps
+  the backup consistent.
+- Web UI: added `webui` so Home Assistant shows the **Open Web UI** button
+  instead of requiring the URL to be typed manually.
+- Removed `init: false`: the upstream image has no init of its own (no S6),
+  so the Supervisor default (`init: true`, Docker tini as PID 1) is correct.
+- Web scraping / URL ingestion: deliberately left on the safe path
+  (Variant B - no `--no-sandbox`, no `SYS_ADMIN`). The bundled Chromium
+  is from the Chrome 119 era (late 2023) and cannot run sandboxed as
+  root. Static HTML URLs keep working through the collector's HTTP
+  fallback; JavaScript-heavy pages and "Website Depth" are not supported.
+  The SERP-based agent "Web Search" is unaffected. Documented in
+  `DOCS.md`, including the recommendation to disable the built-in
+  "Scrape websites" skill when it is not used.
+- Docs: corrected the telemetry note (the container environment variable
+  cannot be overridden from the web UI), the SYS_ADMIN/Chromium statement,
+  and the Raspberry Pi 3/RAM claim; added image/disk requirements, the
+  cold-backup note and troubleshooting entries for the expected Puppeteer
+  errors.
+- README: fixed the one-click install badge - the my-link redirect expects
+  `repository_url`, not `repository`; added requirements and the web
+  search/web pages distinction.
+- CI: the build now fails if the add-on version in `config.yaml` (without
+  the `-haN` suffix) and the `ANYTHINGLLM_VERSION` Dockerfile ARG drift
+  apart. Linter is clean.
+
 ## 1.18.0-ha1
 
 - Initial add-on build, pinning AnythingLLM **1.18.0** (plain upstream

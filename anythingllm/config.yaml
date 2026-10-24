@@ -1,13 +1,23 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: AnythingLLM
 slug: anythingllm
-version: "1.18.0-ha1"
+version: "1.18.0-ha2"
 description: All-in-one AI chat application (AnythingLLM) with built-in RAG, embedded storage and native multi-user administration, running fully locally
 url: "https://github.com/schlangeweile/ha-addon-anythingllm/tree/master/anythingllm"
 arch:
   - aarch64
   - amd64
-init: false
+# init is intentionally not set: the Supervisor default is true, which is
+# correct because the upstream image has no init of its own (no S6).
+
+# Cold backups stop the add-on briefly so the live SQLite/LanceDB state on
+# /data is copied consistently (the Supervisor defaults to hot backups).
+backup: cold
+
 ports:
   3001/tcp: 3001
+
+# Renders the "Open Web UI" button on the add-on page.
+webui: "http://[HOST]:[PORT:3001]"
+
 image: "ghcr.io/schlangeweile/{arch}-addon-anythingllm"

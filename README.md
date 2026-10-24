@@ -15,16 +15,40 @@ are embedded, and all state persists on the add-on's data volume.
 
 > **Status:** experimental, but verified. The arm64 image passed a static
 > LSE-atomics scan and ARMv8.0 runtime emulation (safe for Odroid N2+ /
-> Raspberry Pi 3/4 class devices); the amd64 build passed a full smoke
+> Raspberry Pi 4/5 class devices); the amd64 build passed a full smoke
 > test (onboarding, chat, RAG with citations, multi-user isolation,
 > persistence across container recreation). Measured RAM: ~310 MiB idle /
 > ~315 MiB under load on amd64. Final confirmation on real Odroid N2+
 > hardware is still pending - see the add-on changelog for details.
+> The add-on layer is at **1.18.0-ha2** (consistent cold backups, Open Web
+> UI button, documentation fixes); the bundled AnythingLLM image is
+> unchanged from 1.18.0.
 
 | Architecture | Status |
 | ------------ | ------ |
 | aarch64 (ARMv8.0) | statically + emulated verified; on-device test pending |
 | amd64        | full smoke test passed (chat, RAG, multi-user, persistence) |
+
+## Requirements
+
+- Home Assistant OS or Supervised, aarch64 or amd64.
+- ~1 GB download and ~4.4 GiB free disk for the image, plus room for
+  documents, the vector cache and LanceDB under `/data`.
+- ~0.5 GB RAM (measured ~310 MiB idle on amd64). 2 GB total is enough for
+  chat and RAG; 4 GB is comfortable. A Raspberry Pi 3 (1 GB) is
+  instruction-set compatible but too small to run this add-on.
+
+## Web search vs. web pages
+
+- The agent's **Web Search** skill uses a web-search (SERP) provider over
+  HTTP (Serper, SerpAPI, Brave, Bing, SearXNG, Tavily, ...). It works in
+  this add-on.
+- Browser-based **URL ingestion** and **Website Depth** are intentionally
+  not enabled: the bundled Chromium is old and cannot run sandboxed in
+  this container. Static HTML pages still work through the collector's
+  HTTP fallback; JavaScript-heavy pages and crawling do not. See the
+  add-on documentation, and disable the "Scrape websites" agent skill if
+  you don't use it.
 
 ## Why this exists
 
@@ -38,21 +62,22 @@ access are managed from the admin dashboard - no extra tooling.
 
 ## Installation
 
-[![Open your Home Assistant instance and show the add-on repository dialog.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository=https%3A%2F%2Fgithub.com%2Fschlangeweile%2Fha-addon-anythingllm)
+[![Open your Home Assistant instance and show the add-on repository dialog.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fschlangeweile%2Fha-addon-anythingllm)
 
 1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**.
 2. Open the **⋮ menu → Repositories**, add
    `https://github.com/schlangeweile/ha-addon-anythingllm`.
 3. Refresh, open **AnythingLLM** from the store and click **Install**
    (the finished image is pulled for your device's architecture).
-4. Start the add-on and open `http://<home-assistant>:3001`.
-   Complete the onboarding wizard - the first account becomes the
-   administrator. For household sharing, enable **Multi-User Mode**
-   under Admin Tools and create accounts with the **default** role.
+4. Start the add-on and click **Open Web UI** (or open
+   `http://<home-assistant>:3001`). Complete the onboarding wizard - the
+   first account becomes the administrator. For household sharing,
+   enable **Multi-User Mode** under Admin Tools and create accounts with
+   the **default** role.
 
 Configuration happens entirely in the web UI (stored in the embedded
 database). See the add-on's **Documentation** tab for details (RAG
-setup, providers, backups, troubleshooting).
+setup, providers, web search vs. web pages, backups, troubleshooting).
 
 ## Updating to a newer AnythingLLM
 
@@ -60,8 +85,9 @@ The add-on version tracks the bundled AnythingLLM version. To move to a
 newer release, bump the `ANYTHINGLLM_VERSION` default in
 `anythingllm/Dockerfile` and the add-on `version` in
 `anythingllm/config.yaml` - GitHub Actions builds the new images and the
-supervisor offers the add-on update in the store. Database migrations
-apply automatically on start.
+supervisor offers the add-on update in the store. CI fails the build if
+those two versions drift apart. Database migrations apply automatically
+on start.
 
 ## Credits
 
