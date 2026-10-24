@@ -13,14 +13,18 @@ the official multi-arch AnythingLLM image: no external database, no
 object storage, no extra services - SQLite and the LanceDB vector store
 are embedded, and all state persists on the add-on's data volume.
 
-> **Status:** experimental. Built from the official multi-arch image;
-> verification on ARMv8.0 hardware (Odroid N2+) is still in progress -
-> see the add-on changelog before relying on it.
+> **Status:** experimental, but verified. The arm64 image passed a static
+> LSE-atomics scan and ARMv8.0 runtime emulation (safe for Odroid N2+ /
+> Raspberry Pi 3/4 class devices); the amd64 build passed a full smoke
+> test (onboarding, chat, RAG with citations, multi-user isolation,
+> persistence across container recreation). Measured RAM: ~310 MiB idle /
+> ~315 MiB under load on amd64. Final confirmation on real Odroid N2+
+> hardware is still pending - see the add-on changelog for details.
 
 | Architecture | Status |
 | ------------ | ------ |
-| aarch64 (ARMv8.0) | pending verification on Odroid N2+ |
-| amd64        | built from the same multi-arch image |
+| aarch64 (ARMv8.0) | statically + emulated verified; on-device test pending |
+| amd64        | full smoke test passed (chat, RAG, multi-user, persistence) |
 
 ## Why this exists
 

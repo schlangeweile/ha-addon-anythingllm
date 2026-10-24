@@ -20,7 +20,29 @@ and the LanceDB vector store require no external services.
 | Database | embedded SQLite + LanceDB (no external DB)   |
 | Config   | in the web UI only (stored in the database)  |
 
-Anonymous telemetry is disabled by default.
+Anonymous telemetry is disabled by default (`DISABLE_TELEMETRY=true` is set
+in the add-on image; it can be re-enabled in the app under Admin Tools →
+Telemetry if you prefer).
+
+## Capabilities
+
+The add-on needs no extra capabilities (`full_access`, `SYS_ADMIN`, devices
+or host network are NOT required). The `--cap-add SYS_ADMIN` mentioned in
+upstream docs only matters for the optional built-in local LLM engine,
+which this add-on does not support on low-RAM ARM devices anyway. The
+upstream entrypoint only runs Node processes and Prisma migrations -
+nothing touches the host.
+
+## Where your data lives
+
+Everything persists on the add-on's `/data` volume: the SQLite database
+(`anythingllm.db`), the LanceDB vector store (`lancedb/`), uploaded and
+processed documents (`documents/`), and the runtime configuration file
+(`.env`, holds your provider keys and the JWT secret). A Home Assistant
+backup of the add-on includes all of it. Internally the add-on redirects
+the app's default storage paths to `/data` via symlinks - if you build a
+custom image from this repository, keep those `RUN` lines in the
+Dockerfile.
 
 ## First start
 
@@ -72,8 +94,10 @@ Ollama server on capable hardware.
 
 - **Container restarts immediately / log shows `Illegal instruction`**:
   this indicates a binary that requires ARMv8.2+ (LSE) CPU features on
-  an ARMv8.0 device (e.g. Odroid N2+, Raspberry Pi 3/4). Please open an
-  issue in the add-on repository with the log excerpt.
+  an ARMv8.0 device (e.g. Odroid N2+, Raspberry Pi 3/4). The arm64 image
+  was statically scanned and runtime-tested on an ARMv8.0-emulated CPU
+  for add-on version 1.18.0-ha1, so this should not happen - if it does,
+  please open an issue in the add-on repository with the log excerpt.
 - **Cannot write to /data**: the add-on runs the app as root inside the
   container on purpose (the persistent volume is root-owned); if you
   changed the image, keep the `USER root` directive.
