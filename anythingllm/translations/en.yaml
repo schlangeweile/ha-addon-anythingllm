@@ -1,0 +1,3 @@
+configuration: {}
+network:
+  3001/tcp: AnythingLLM web interface

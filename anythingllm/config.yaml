@@ -1,0 +1,13 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration
+name: AnythingLLM
+slug: anythingllm
+version: "1.18.0-ha1"
+description: All-in-one AI chat application (AnythingLLM) with built-in RAG, embedded storage and native multi-user administration, running fully locally
+url: "https://github.com/schlangeweile/ha-addon-anythingllm/tree/master/anythingllm"
+arch:
+  - aarch64
+  - amd64
+init: false
+ports:
+  3001/tcp: 3001
+image: "ghcr.io/schlangeweile/{arch}-addon-anythingllm"
