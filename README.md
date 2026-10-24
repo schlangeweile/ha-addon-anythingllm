@@ -34,6 +34,8 @@ access are managed from the admin dashboard - no extra tooling.
 
 ## Installation
 
+[![Open your Home Assistant instance and show the add-on repository dialog.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository=https%3A%2F%2Fgithub.com%2Fschlangeweile%2Fha-addon-anythingllm)
+
 1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**.
 2. Open the **⋮ menu → Repositories**, add
    `https://github.com/schlangeweile/ha-addon-anythingllm`.
