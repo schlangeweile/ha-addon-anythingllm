@@ -2,3 +2,5 @@
 AGENTS.md
 .zcode/
 .zcodeignore
+lse_scan.py
+mock_openai.py
