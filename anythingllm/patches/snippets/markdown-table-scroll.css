@@ -1,0 +1,14 @@
+/* anythingllm-ha: markdown-table-scroll
+ * Keep in sync with anythingllm/PATCHES.md.
+ * Upstream clips wide markdown tables with `.markdown table { overflow: hidden; }`
+ * and has no scroll wrapper. On narrow screens, make the table itself a
+ * horizontal scroll container so all columns stay reachable.
+ */
+@media (max-width: 600px) {
+  .markdown table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+}

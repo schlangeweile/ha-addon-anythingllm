@@ -13,8 +13,9 @@ the official multi-arch AnythingLLM image: no external database, no
 object storage, no extra services - SQLite and the LanceDB vector store
 are embedded, and all state persists on the add-on's data volume. The
 image also contains an experimental local patch for DeepSeek: optional
-Search/Fetch APIs (off by default) and image attachments for the native
-provider's vision model (`deepseek-flash`); see below.
+Search/Fetch APIs (off by default), image attachments for the native
+provider's vision model (`deepseek-flash`), and a small CSS override for
+wide markdown tables on phones; see below.
 
 > **Status:** experimental, but verified. The arm64 image passed a static
 > LSE-atomics scan and ARMv8.0 runtime emulation (safe for Odroid N2+ /
@@ -23,11 +24,11 @@ provider's vision model (`deepseek-flash`); see below.
 > persistence across container recreation). Measured RAM: ~310 MiB idle /
 > ~315 MiB under load on amd64. Final confirmation on real Odroid N2+
 > hardware is still pending - see the add-on changelog for details.
-> The add-on layer is at **1.18.0-ha4** (consistent cold backups, Open Web
+> The add-on layer is at **1.18.0-ha5** (consistent cold backups, Open Web
 > UI button, documentation fixes, an optional experimental DeepSeek
-> Search/Fetch patch, and native DeepSeek image support for
-> `deepseek-flash`); the bundled AnythingLLM image is unchanged from
-> 1.18.0.
+> Search/Fetch patch, native DeepSeek image support for `deepseek-flash`,
+> and a mobile table-scroll CSS fix); the bundled AnythingLLM image is
+> unchanged from 1.18.0.
 
 | Architecture | Status |
 | ------------ | ------ |
@@ -75,6 +76,12 @@ them as workspace documents, or send them through the API with the
 A complete inventory of the build-time patches, their exact upstream
 anchors and the upstream-bump checklist is in
 [anythingllm/PATCHES.md](anythingllm/PATCHES.md).
+
+## Mobile tables
+
+On screens up to 600 px, wide markdown tables are horizontally scrollable
+instead of being clipped, so all columns stay reachable. This is a
+display-only CSS patch in the add-on image; no add-on option is needed.
 
 ## Why this exists
 

@@ -1,4 +1,4 @@
-# Add-on patches (AnythingLLM 1.18.0-ha4)
+# Add-on patches (AnythingLLM 1.18.0-ha5)
 
 This add-on is a thin layer on the pinned upstream image
 `mintplexlabs/anythingllm:1.18.0`, plus the build-time patch layer in
@@ -19,17 +19,16 @@ Patches are applied at image build time, not at runtime.
 | 4 | [`snippets/collector-fetch.js`](patches/snippets/collector-fetch.js) | `server/utils/collectorApi/index.js` | DeepSeek Fetch for the agent's "Scrape websites" skill | `deepseek_fetch` | Upstream has native Fetch/scrape support |
 | 5 | [`snippets/deepseek-chat-images.js`](patches/snippets/deepseek-chat-images.js) | `server/utils/AiProviders/deepseek/index.js` | Image attachments in normal chat for `deepseek-flash` | none | Upstream treats DeepSeek as vision-capable |
 | 6 | [`snippets/deepseek-agent-images.js`](patches/snippets/deepseek-agent-images.js) | `server/utils/agents/aibitat/providers/deepseek.js` | Image attachments in agent mode plus `#stripAttachments` guard | none | Same as #5 |
+| 7 | [`snippets/markdown-table-scroll.css`](patches/snippets/markdown-table-scroll.css) | `server/public/index.css` | Horizontal scrolling for wide markdown tables on screens up to 600 px | none | Upstream makes markdown tables scrollable itself |
 
 The image patch (#5/#6) is always applied; it only affects the native
-DeepSeek provider. Only the Search/Fetch behaviour is controlled by the
-two add-on options.
-
-**Not a patch:** the frontend table CSS workaround discussed for mobile
-tables is not implemented yet; it is not part of this layer.
+DeepSeek provider. The table-scroll patch (#7) is also always applied but
+only affects chat markdown tables below the 600 px breakpoint. Only the
+Search/Fetch behaviour is controlled by the two add-on options.
 
 ## Anchor map
 
-Every edit uses `replaceOnce(content, needle, replacement, label)`:
+Most edits use `replaceOnce(content, needle, replacement, label)`:
 
 - the anchor must occur **exactly once** in the upstream file, otherwise
   the build fails with
@@ -37,6 +36,9 @@ Every edit uses `replaceOnce(content, needle, replacement, label)`:
 - `EXPECTED_VERSION = "1.18.0"` is checked against the upstream image's
   `DEPLOYMENT_VERSION` before any file is touched;
 - the labels below are the third argument passed to `replaceOnce`.
+
+The new helper (#1) is a whole-file copy and the CSS patch (#7) is a guarded
+append; both are called out separately below.
 
 ### 1. New helper file
 
@@ -177,6 +179,40 @@ Every edit uses `replaceOnce(content, needle, replacement, label)`:
   - Replacement inserts `if (this.#supportsVision) return messages;`
     before `let hasAttachments`.
 
+### 7. `server/public/index.css` (mobile markdown tables)
+
+- No `replaceOnce` anchor. `apply.js` verifies that `.markdown table`
+  exists in the built stylesheet, then appends
+  [`snippets/markdown-table-scroll.css`](patches/snippets/markdown-table-scroll.css)
+  once. The `anythingllm-ha: markdown-table-scroll` marker keeps the CSS
+  append itself idempotent.
+- If `.markdown table` is missing, the build fails with
+  `[deepseek-patch] ERROR: could not find the .markdown table rule in
+  server/public/index.css`.
+- The override is appended at the end of the stylesheet, so it wins over
+  the upstream `.markdown table { overflow: hidden; }` rule:
+
+  ```css
+  /* anythingllm-ha: markdown-table-scroll
+   * Keep in sync with anythingllm/PATCHES.md.
+   * Upstream clips wide markdown tables with `.markdown table { overflow: hidden; }`
+   * and has no scroll wrapper. On narrow screens, make the table itself a
+   * horizontal scroll container so all columns stay reachable.
+   */
+  @media (max-width: 600px) {
+    .markdown table {
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+  }
+  ```
+
+- This is a display-only workaround. It does not change model output, the
+  API, or tables on wider screens; it only makes the table swipeable on
+  phones.
+
 ## Vision behaviour
 
 - Vision-capable model names in the patch:
@@ -209,6 +245,9 @@ Consequences:
   not silently overwritten by the release.
 - If an anchor moved, `apply.js` fails the image build before the image
   is published. That is intentional: no patch silently stops applying.
+- The new helper (#1) and the CSS append (#7) do not use `replaceOnce`:
+  #1 is a whole-file copy (watch for a path collision on bump), #7 checks
+  for the `.markdown table` rule and appends once via its marker.
 - If upstream already implements one of the patched features, the patch
   becomes redundant or conflicts with the new implementation. Remove it
   and its options instead of forcing the old anchor.
@@ -225,9 +264,10 @@ Consequences:
    - `server/utils/collectorApi/index.js`
    - `server/utils/AiProviders/deepseek/index.js`
    - `server/utils/agents/aibitat/providers/deepseek.js`
-4. Check whether upstream now supports DeepSeek Search/Fetch or DeepSeek
-   vision; remove the corresponding patch(es) and options instead of
-   carrying a redundant patch.
+   - `server/public/index.css`
+4. Check whether upstream now supports DeepSeek Search/Fetch, DeepSeek
+   vision, or scrollable markdown tables; remove the corresponding
+   patch(es) and options instead of carrying a redundant patch.
 5. Re-verify the add-on integration points: the three storage symlinks
    (`/app/server/storage`, `/app/server/.env`, `/collector/hotdir`), the
    entrypoint contract, and ARMv8.0 if native binaries changed.
@@ -248,7 +288,7 @@ Consequences:
 - Remove `deepseek_search` and `deepseek_fetch` from `config.yaml` and
   `translations/en.yaml`.
 - Remove the Search/Fetch sections from `DOCS.md` and `README.md`.
-- Remove the `COPY patches` / `RUN apply.js` layer only if no image patch
+- Remove the `COPY patches` / `RUN apply.js` layer only if no patch
   remains.
 
 ### When upstream treats DeepSeek as vision-capable
@@ -256,8 +296,15 @@ Consequences:
 - Remove step 5 from `apply.js` and delete:
   - `patches/snippets/deepseek-chat-images.js`
   - `patches/snippets/deepseek-agent-images.js`
-- Keep the Search/Fetch patch if it is still needed.
+- Keep the Search/Fetch and table-scroll patches if they are still needed.
 - Update `DOCS.md` and `README.md` to describe the upstream behaviour.
+
+### When upstream makes markdown tables scrollable
+
+- Remove step 6 from `apply.js` and delete
+  `patches/snippets/markdown-table-scroll.css`.
+- Remove the mobile-table notes from `DOCS.md` and `README.md`.
+- Remove the patch row and anchor section from this file.
 
 ## Verification after changing this layer
 
@@ -265,9 +312,12 @@ Consequences:
 node --check anythingllm/patches/apply.js
 cd anythingllm
 docker build -t anythingllm-ha:test .
-docker run --rm --entrypoint sh anythingllm-ha:test \
-  -c 'grep -R "supportsVision" /app/server/utils/AiProviders/deepseek /app/server/utils/agents/aibitat/providers/deepseek.js'
+docker run --rm --entrypoint sh anythingllm-ha:test -c '
+  grep -n "markdown-table-scroll" /app/server/public/index.css
+  grep -R "supportsVision" /app/server/utils/AiProviders/deepseek \
+    /app/server/utils/agents/aibitat/providers/deepseek.js
+'
 ```
 
 The build log must include `[deepseek-patch] done` and list every patched
-file. For a full prompt-level check, see the ha4 changelog entry.
+file. For a full prompt-level check, see the ha5 changelog entry.

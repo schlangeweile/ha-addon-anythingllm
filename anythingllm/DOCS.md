@@ -11,10 +11,11 @@ as DashScope/Ollama, and more).
 The add-on is a single service based on the official multi-arch
 AnythingLLM image, plus an experimental local patch for DeepSeek: the
 optional Search/Fetch APIs (off by default) and image attachments for the
-native provider's `deepseek-flash` vision model. Inside the container the
-upstream entrypoint runs the web app and its document collector; the
-embedded SQLite database and the LanceDB vector store require no external
-services.
+native provider's `deepseek-flash` vision model. The image also adds a
+small CSS override that makes wide markdown tables scrollable on phones.
+Inside the container the upstream entrypoint runs the web app and its
+document collector; the embedded SQLite database and the LanceDB vector
+store require no external services.
 
 | Aspect   | Detail                                                      |
 | -------- | ----------------------------------------------------------- |
@@ -147,6 +148,16 @@ The image patch is pinned to 1.18.0 as well and fails the image build if
 an anchor changes; it can be removed once upstream stops treating all
 DeepSeek models as text-only.
 
+### Tables on small screens
+
+Upstream 1.18.0 clips wide markdown tables on narrow screens because the
+table CSS uses `width: 100%` and `overflow: hidden` without a scroll
+wrapper. The add-on appends a small CSS override at build time: below
+600 px, `.markdown table` becomes a horizontal scroll container, so all
+columns stay reachable by swiping. This is display-only, needs no add-on
+option, and does not change the model output. Wider screens keep the
+normal table layout.
+
 ### Build-time patch inventory
 
 A maintainer-facing inventory of all build-time patches, their exact
@@ -252,6 +263,11 @@ Ollama server on capable hardware.
   (not a PDF), and restart the add-on after the update so the patched
   provider is loaded. PDFs go through the document/OCR path, not the
   vision path.
+- **Wide table is cut off on the phone**: make sure the add-on runs
+  **1.18.0-ha5** or newer and hard-refresh the web UI. Below 600 px the
+  markdown table is horizontally scrollable; on wider screens the normal
+  table layout applies. This only affects markdown tables, not PDFs or
+  code blocks.
 - **Cannot write to /data**: the add-on runs the app as root inside the
   container on purpose (the persistent volume is root-owned); if you
   changed the image, keep the `USER root` directive.

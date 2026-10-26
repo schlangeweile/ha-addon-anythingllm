@@ -2,13 +2,15 @@
 "use strict";
 
 /**
- * Fail-fast patch layer for DeepSeek Search/Fetch and native image support.
+ * Fail-fast patch layer for DeepSeek Search/Fetch, native image support and
+ * mobile markdown-table scrolling.
  *
  * The add-on is normally a thin image on top of the official AnythingLLM
- * image. This patch deliberately changes the server code for two reasons:
- * upstream 1.18.0 has no DeepSeek web-search provider, and its native
- * DeepSeek provider hard-codes the model as text-only even though
- * deepseek-flash accepts images. The changes are:
+ * image. This patch deliberately changes the upstream code for three reasons:
+ * upstream 1.18.0 has no DeepSeek web-search provider, its native DeepSeek
+ * provider hard-codes the model as text-only even though deepseek-flash
+ * accepts images, and its markdown tables clip horizontally on narrow
+ * screens. The changes are:
  *
  *   1. server/utils/agents/aibitat/plugins/helpers/deepseek.js (new helper)
  *   2. server/utils/agents/aibitat/plugins/web-browsing.js (provider)
@@ -17,6 +19,7 @@
  *   5. server/utils/AiProviders/deepseek/index.js and
  *      server/utils/agents/aibitat/providers/deepseek.js (image attachments
  *      for vision-capable DeepSeek models)
+ *   6. server/public/index.css (mobile markdown-table horizontal scroll)
  *
  * The script asserts the pinned upstream version and fails the image build if
  * an anchor is no longer present. That is intentional: on every upstream
@@ -244,5 +247,18 @@ deepseekAgent = replaceOnce(
   "deepseek agent stripAttachments guard"
 );
 writeApp("server/utils/agents/aibitat/providers/deepseek.js", deepseekAgent);
+
+// 6. Make wide markdown tables horizontally scrollable on narrow screens.
+//    Upstream clips them with `.markdown table { overflow: hidden; }` and has
+//    no wrapper. Append the CSS override once; the marker prevents duplicate
+//    CSS if this step is retried.
+let indexCss = readApp("server/public/index.css");
+if (!indexCss.includes(".markdown table")) {
+  fail("could not find the .markdown table rule in server/public/index.css");
+}
+if (!indexCss.includes("anythingllm-ha: markdown-table-scroll")) {
+  indexCss += "\n" + readSnippet("markdown-table-scroll.css");
+  writeApp("server/public/index.css", indexCss);
+}
 
 console.log("[deepseek-patch] done");

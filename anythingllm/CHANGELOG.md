@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.18.0-ha5
+
+- Mobile tables: wide markdown tables are now horizontally scrollable on
+  screens up to 600 px. Upstream 1.18.0 clips them with
+  `.markdown table { width: 100%; overflow: hidden; }` and has no scroll
+  wrapper; the add-on appends a small CSS override
+  (`.markdown table { display: block; overflow-x: auto; ... }`) at build
+  time. No add-on option is needed and wider screens keep the normal
+  table layout.
+- Patch layer: new `patches/snippets/markdown-table-scroll.css` and step 6
+  in `patches/apply.js`. The step verifies the upstream `.markdown table`
+  rule exists, appends the override once (marker
+  `anythingllm-ha: markdown-table-scroll`) and fails the build if the CSS
+  anchor moved.
+- `PATCHES.md` now lists the table-scroll patch, its append guard, the
+  removal condition and the updated upstream-bump checklist.
+- Tests: patched image built; the marker/CSS is present in the built
+  `index.css`; the override was rendered at 390 px in a headless browser
+  and all table columns were reachable by horizontal scrolling. No real
+  DeepSeek key was used.
+- Docs: README and DOCS describe the mobile-table behaviour and the
+  troubleshooting note.
+
 ## 1.18.0-ha4
 
 - Experimental local patch (not upstream): the native DeepSeek provider now
