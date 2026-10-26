@@ -2,16 +2,21 @@
 "use strict";
 
 /**
- * Fail-fast patch layer for the experimental DeepSeek Search/Fetch support.
+ * Fail-fast patch layer for DeepSeek Search/Fetch and native image support.
  *
  * The add-on is normally a thin image on top of the official AnythingLLM
- * image. This patch deliberately adds three small changes to the server code
- * because upstream 1.18.0 has no DeepSeek web-search provider:
+ * image. This patch deliberately changes the server code for two reasons:
+ * upstream 1.18.0 has no DeepSeek web-search provider, and its native
+ * DeepSeek provider hard-codes the model as text-only even though
+ * deepseek-flash accepts images. The changes are:
  *
  *   1. server/utils/agents/aibitat/plugins/helpers/deepseek.js (new helper)
  *   2. server/utils/agents/aibitat/plugins/web-browsing.js (provider)
  *   3. server/models/systemSettings.js (allowed provider value)
  *   4. server/utils/collectorApi/index.js (Fetch fallback for agent scraping)
+ *   5. server/utils/AiProviders/deepseek/index.js and
+ *      server/utils/agents/aibitat/providers/deepseek.js (image attachments
+ *      for vision-capable DeepSeek models)
  *
  * The script asserts the pinned upstream version and fails the image build if
  * an anchor is no longer present. That is intentional: on every upstream
@@ -151,5 +156,93 @@ collectorApi = replaceOnce(
   "collectorApi DeepSeek Fetch"
 );
 writeApp("server/utils/collectorApi/index.js", collectorApi);
+
+// 5. Native DeepSeek provider: pass image attachments through to
+//    vision-capable models (deepseek-flash). Upstream 1.18.0 treats every
+//    DeepSeek model as text-only and drops images in both chat and agent mode.
+let deepseekChat = readApp("server/utils/AiProviders/deepseek/index.js");
+deepseekChat = replaceOnce(
+  deepseekChat,
+  `const {
+  handleDefaultStreamResponseV2,
+  formatChatHistory,
+} = require("../../helpers/chat/responses");`,
+  `const {
+  handleDefaultStreamResponseV2,
+  formatChatHistory,
+} = require("../../helpers/chat/responses");
+const { attachmentToContentBlock } = require("../../helpers/attachments");`,
+  "deepseek chat attachment helper import"
+);
+deepseekChat = replaceOnce(
+  deepseekChat,
+  `  constructPrompt({
+    systemPrompt = "",
+    contextTexts = [],
+    chatHistory = [],
+    userPrompt = "",
+  }) {
+    const prompt = {
+      role: "system",
+      content: \`\${systemPrompt}\${this.#appendContext(contextTexts)}\`,
+    };
+    return [
+      prompt,
+      ...formatChatHistory(chatHistory, ({ userPrompt }) => userPrompt),
+      { role: "user", content: userPrompt },
+    ];
+  }`,
+  readSnippet("deepseek-chat-images.js"),
+  "deepseek chat image prompt"
+);
+writeApp("server/utils/AiProviders/deepseek/index.js", deepseekChat);
+
+let deepseekAgent = readApp(
+  "server/utils/agents/aibitat/providers/deepseek.js"
+);
+deepseekAgent = replaceOnce(
+  deepseekAgent,
+  'const { toValidNumber } = require("../../../http/index.js");',
+  'const { toValidNumber } = require("../../../http/index.js");\n' +
+    'const {\n  attachmentToContentBlock,\n} = require("../../../helpers/attachments");',
+  "deepseek agent attachment helper import"
+);
+deepseekAgent = replaceOnce(
+  deepseekAgent,
+  `  /**
+   * DeepSeek models do not support vision/image inputs.
+   * Strip attachments from messages to prevent API errors.
+   * @param {Object} message - Message with potential attachments
+   * @returns {Object} Message without attachments
+   */
+  formatMessageWithAttachments(message) {
+    const { attachments: _, ...rest } = message;
+    return rest;
+  }`,
+  readSnippet("deepseek-agent-images.js"),
+  "deepseek agent attachment formatting"
+);
+deepseekAgent = replaceOnce(
+  deepseekAgent,
+  `  /**
+   * Strip attachments from all messages since DeepSeek doesn't support vision.
+   * @param {Array} messages - Array of messages
+   * @returns {Array} Messages with attachments removed
+   */
+  #stripAttachments(messages) {
+    let hasAttachments = false;`,
+  `  /**
+   * Strip attachments from messages for text-only DeepSeek models. Vision
+   * models (deepseek-flash) keep them so formatMessageWithAttachments can
+   * build image_url blocks.
+   * @param {Array} messages - Array of messages
+   * @returns {Array} Messages with attachments removed when unsupported
+   */
+  #stripAttachments(messages) {
+    if (this.#supportsVision) return messages;
+    let hasAttachments = false;`,
+  "deepseek agent stripAttachments guard"
+);
+writeApp("server/utils/agents/aibitat/providers/deepseek.js", deepseekAgent);
 
 console.log("[deepseek-patch] done");

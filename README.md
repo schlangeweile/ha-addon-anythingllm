@@ -12,8 +12,9 @@ It targets devices like the **Hardkernel Odroid N2+** and Raspberry Pi
 the official multi-arch AnythingLLM image: no external database, no
 object storage, no extra services - SQLite and the LanceDB vector store
 are embedded, and all state persists on the add-on's data volume. The
-image also contains an optional, experimental local patch for DeepSeek's
-Search/Fetch APIs (off by default, see below).
+image also contains an experimental local patch for DeepSeek: optional
+Search/Fetch APIs (off by default) and image attachments for the native
+provider's vision model (`deepseek-flash`); see below.
 
 > **Status:** experimental, but verified. The arm64 image passed a static
 > LSE-atomics scan and ARMv8.0 runtime emulation (safe for Odroid N2+ /
@@ -22,9 +23,10 @@ Search/Fetch APIs (off by default, see below).
 > persistence across container recreation). Measured RAM: ~310 MiB idle /
 > ~315 MiB under load on amd64. Final confirmation on real Odroid N2+
 > hardware is still pending - see the add-on changelog for details.
-> The add-on layer is at **1.18.0-ha3** (consistent cold backups, Open Web
-> UI button, documentation fixes, and an optional experimental DeepSeek
-> Search/Fetch patch); the bundled AnythingLLM image is unchanged from
+> The add-on layer is at **1.18.0-ha4** (consistent cold backups, Open Web
+> UI button, documentation fixes, an optional experimental DeepSeek
+> Search/Fetch patch, and native DeepSeek image support for
+> `deepseek-flash`); the bundled AnythingLLM image is unchanged from
 > 1.18.0.
 
 | Architecture | Status |
@@ -58,6 +60,17 @@ Search/Fetch APIs (off by default, see below).
   HTTP fallback; JavaScript-heavy pages and crawling do not. See the
   add-on documentation, and disable the "Scrape websites" agent skill if
   you don't use it.
+
+## DeepSeek images
+
+The add-on patches the native DeepSeek provider so chat images are
+forwarded to `deepseek-flash` (normal chat and agent mode). `deepseek-v4-pro`
+remains text-only and still gets images stripped. No add-on option is
+needed - select the native DeepSeek provider with `deepseek-flash` and
+attach JPEG/PNG/GIF/WebP images as usual. PDFs are not accepted by
+DeepSeek's API; they still go through the document/OCR pipeline (upload
+them as workspace documents, or send them through the API with the
+`application/anythingllm-document` MIME type).
 
 ## Why this exists
 
@@ -100,10 +113,11 @@ supervisor offers the add-on update in the store. CI fails the build if
 those two versions drift apart. Database migrations apply automatically
 on start.
 
-The experimental DeepSeek patch is pinned to AnythingLLM 1.18.0; on an
+The experimental DeepSeek patches are pinned to AnythingLLM 1.18.0; on an
 upstream bump the patcher must be re-checked (the image build fails if an
-anchor moved). Remove the patch and its two options once upstream supports
-DeepSeek Search natively.
+anchor moved). Remove the Search/Fetch patch and its two options once
+upstream supports DeepSeek Search natively; the image patch can be dropped
+once upstream stops treating all DeepSeek models as text-only.
 
 ## Credits
 

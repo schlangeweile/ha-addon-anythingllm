@@ -9,8 +9,9 @@ as DashScope/Ollama, and more).
 ## How it works
 
 The add-on is a single service based on the official multi-arch
-AnythingLLM image, plus an optional experimental local patch for
-DeepSeek's Search/Fetch APIs (off by default). Inside the container the
+AnythingLLM image, plus an experimental local patch for DeepSeek: the
+optional Search/Fetch APIs (off by default) and image attachments for the
+native provider's `deepseek-flash` vision model. Inside the container the
 upstream entrypoint runs the web app and its document collector; the
 embedded SQLite database and the LanceDB vector store require no external
 services.
@@ -113,10 +114,38 @@ Prerequisites and notes:
    Search/Fetch requests** (plus model tokens); search queries and fetched
    URLs are sent to DeepSeek.
 
-This is a local stopgap until upstream adds a DeepSeek provider. The patch
-script fails the image build if the pinned upstream version or one of its
-anchors changes; when upstream supports DeepSeek Search natively, the
-patch and its two options can be removed.
+This is a local stopgap until upstream adds a DeepSeek search provider.
+The patch script fails the image build if the pinned upstream version or
+one of its anchors changes; when upstream supports DeepSeek Search
+natively, the Search/Fetch patch and its two options can be removed.
+
+### DeepSeek images (native provider, experimental patch)
+
+Upstream AnythingLLM 1.18.0 hard-codes the native DeepSeek provider as
+text-only and silently drops chat images. That is out of date: DeepSeek's
+`deepseek-flash` accepts JPEG/PNG/GIF/WebP images as OpenAI-compatible
+`image_url` blocks (base64, external URL, or Files API). The add-on patch
+therefore forwards image attachments in both normal chat and agent mode
+for:
+
+- `deepseek-flash`
+- `deepseek-v4-flash-vision-exp` (legacy alias, served by the latest Flash
+  model)
+
+`deepseek-v4-pro` and the other text-only models keep the old behavior -
+images are stripped, so the request does not fail. No add-on option is
+needed: select the native **DeepSeek** provider and `deepseek-flash`, then
+attach the image in the chat. This also works in agent mode.
+
+PDFs are not images: DeepSeek's API accepts text and images, not PDFs
+(the Files API is image-only as well). Attach PDFs as workspace documents
+(the UI uploads non-image files this way) or send them through the API
+with `mime: application/anythingllm-document`; the collector extracts the
+text first. See "Knowledge base (RAG)".
+
+The image patch is pinned to 1.18.0 as well and fails the image build if
+an anchor changes; it can be removed once upstream stops treating all
+DeepSeek models as text-only.
 
 ## Where your data lives
 
@@ -211,6 +240,12 @@ Ollama server on capable hardware.
   add-on if the key was just added), and use the agent mode. While
   `deepseek_search` is enabled, the built-in Web Search provider dropdown
   is bypassed.
+- **DeepSeek still says it received no image**: make sure the workspace
+  uses the native **DeepSeek** provider with `deepseek-flash` (not
+  `deepseek-v4-pro`, which is text-only), attach a JPEG/PNG/GIF/WebP image
+  (not a PDF), and restart the add-on after the update so the patched
+  provider is loaded. PDFs go through the document/OCR path, not the
+  vision path.
 - **Cannot write to /data**: the add-on runs the app as root inside the
   container on purpose (the persistent volume is root-owned); if you
   changed the image, keep the `USER root` directive.

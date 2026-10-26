@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.18.0-ha4
+
+- Experimental local patch (not upstream): the native DeepSeek provider now
+  forwards image attachments to vision-capable models. Upstream 1.18.0
+  hard-codes DeepSeek as text-only and drops images in both the normal chat
+  prompt builder (`AiProviders/deepseek`) and the agent provider
+  (`aibitat/providers/deepseek`). Both are patched to send OpenAI-style
+  `image_url` blocks for `deepseek-flash` (and the legacy
+  `deepseek-v4-flash-vision-exp` alias); `deepseek-v4-pro` and other
+  text-only models still have images stripped so requests do not fail.
+- No new add-on options: select the native DeepSeek provider with
+  `deepseek-flash` and attach JPEG/PNG/GIF/WebP images. PDFs are not
+  accepted by DeepSeek's API and still go through the document/OCR path.
+- Patcher: two new snippets (`deepseek-chat-images.js`,
+  `deepseek-agent-images.js`) and anchors in `apply.js`; the build fails if
+  the upstream code moves. The patch is still pinned to AnythingLLM 1.18.0.
+- Tests: patched image built; prompt construction verified for normal chat
+  and agent mode (an image becomes an `image_url` block for
+  `deepseek-flash`), while `deepseek-v4-pro` still strips images. No real
+  DeepSeek key was used.
+- Docs: README and DOCS describe the image support, the model requirement
+  and the PDF distinction.
+
 ## 1.18.0-ha3
 
 - Experimental local patch (not upstream): optional **DeepSeek Search and
