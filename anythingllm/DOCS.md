@@ -147,6 +147,12 @@ The image patch is pinned to 1.18.0 as well and fails the image build if
 an anchor changes; it can be removed once upstream stops treating all
 DeepSeek models as text-only.
 
+### Build-time patch inventory
+
+A maintainer-facing inventory of all build-time patches, their exact
+upstream anchors and the upstream-bump checklist is in
+[PATCHES.md](https://github.com/schlangeweile/ha-addon-anythingllm/blob/master/anythingllm/PATCHES.md).
+
 ## Where your data lives
 
 Everything persists on the add-on's `/data` volume: the SQLite database

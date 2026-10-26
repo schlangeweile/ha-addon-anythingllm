@@ -72,6 +72,10 @@ DeepSeek's API; they still go through the document/OCR pipeline (upload
 them as workspace documents, or send them through the API with the
 `application/anythingllm-document` MIME type).
 
+A complete inventory of the build-time patches, their exact upstream
+anchors and the upstream-bump checklist is in
+[anythingllm/PATCHES.md](anythingllm/PATCHES.md).
+
 ## Why this exists
 
 Compared to a full chat-platform stack (the sibling
@@ -117,7 +121,9 @@ The experimental DeepSeek patches are pinned to AnythingLLM 1.18.0; on an
 upstream bump the patcher must be re-checked (the image build fails if an
 anchor moved). Remove the Search/Fetch patch and its two options once
 upstream supports DeepSeek Search natively; the image patch can be dropped
-once upstream stops treating all DeepSeek models as text-only.
+once upstream stops treating all DeepSeek models as text-only. The full
+inventory and the bump checklist are in
+[anythingllm/PATCHES.md](anythingllm/PATCHES.md).
 
 ## Credits
 
