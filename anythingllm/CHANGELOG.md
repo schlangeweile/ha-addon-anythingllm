@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.19.0-ha1
+
+- Bump the pinned upstream image to **AnythingLLM 1.19.0** (plain
+  multi-arch tag, linux/amd64 + linux/arm64). The add-on layer is
+  otherwise unchanged; the build-time patch layer runs again on top of
+  the new upstream files.
+- Patch inventory re-checked against v1.19.0: upstream still has no
+  native DeepSeek Search/Fetch provider, still treats the native DeepSeek
+  provider as text-only, and still clips wide markdown tables. All four
+  add-on patches remain necessary. `EXPECTED_VERSION` in
+  `patches/apply.js` is now `1.19.0`; every server anchor and the
+  `.markdown table` CSS anchor still match, so the snippets are
+  unchanged.
+- Integration points re-checked: the upstream entrypoint, the SQLite
+  datasource in `schema.prisma`, the runtime `.env` path, the collector
+  hotdir and the `DISABLE_TELEMETRY` opt-out are unchanged from 1.18.0.
+  The three storage symlinks and the telemetry default stay as they were.
+- Upstream 1.19.0 adds an optional built-in local LLM (Lemonade /
+  llama.cpp) and color palettes. The built-in engine is off by default
+  and is not enabled by this add-on; remote OpenAI-compatible endpoints
+  remain the recommended path, especially on the 4 GB Odroid N2+.
+- Tests: amd64 image built (4.89 GB uncompressed) and smoke-tested. The
+  container booted, `/api/ping` returned `{"online":true}`, all patched
+  files and the table-scroll marker are present, telemetry is disabled,
+  the storage symlinks point into `/data`, and a restart kept the SQLite
+  DB. Idle RAM: ~290 MiB.
+- ARMv8.0: the 1.19.0 arm64 image was re-scanned statically. `node`,
+  `canvas`, LanceDB, Prisma, ONNX Runtime and sharp are clean; the only
+  LSE hits are the known outline-atomics dispatch tables in the Chromium
+  1088 helpers and `mdpdf` 0.1.10. Both versions are unchanged from
+  1.18.0, where the LL/SC fallback was runtime-proven under QEMU
+  cortex-a53. The built-in LLM adds no native binaries to the image
+  (models/runtimes download at first use).
+- Docs: README, DOCS and PATCHES.md updated for 1.19.0.
+
 ## 1.18.0-ha5
 
 - Mobile tables: wide markdown tables are now horizontally scrollable on

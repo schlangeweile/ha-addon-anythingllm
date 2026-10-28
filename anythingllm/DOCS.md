@@ -27,11 +27,11 @@ store require no external services.
 ## Requirements
 
 - aarch64 (ARMv8.0) or amd64, Home Assistant OS or Supervised.
-- ~1 GB download and ~4.4 GiB free disk for the image, plus space for
+- ~1.1 GB download and ~4.9 GiB free disk for the image, plus space for
   documents, the vector cache and LanceDB under `/data`.
-- ~0.5 GB RAM (measured ~310 MiB idle on amd64). 2 GB total is enough
-  for chat and RAG; 4 GB is comfortable. A Raspberry Pi 3 (1 GB) is
-  instruction-set compatible but too small for this add-on.
+- ~0.5 GB RAM (measured ~290 MiB idle on amd64 with 1.19.0-ha1).
+  2 GB total is enough for chat and RAG; 4 GB is comfortable. A Raspberry
+  Pi 3 (1 GB) is instruction-set compatible but too small for this add-on.
 
 Anonymous telemetry is disabled in the add-on image
 (`DISABLE_TELEMETRY=true`). The in-app setting under Admin Tools →
@@ -83,7 +83,7 @@ scraping, disable the built-in "Scrape websites" skill (unless you use
 
 ### Optional: DeepSeek Search and Fetch (experimental local patch)
 
-Upstream AnythingLLM 1.18.0 has no DeepSeek web-search provider, so this
+Upstream AnythingLLM 1.19.0 has no DeepSeek web-search provider, so this
 add-on image contains a small local patch (the image is therefore no
 longer purely "thin" for this feature). Both toggles are **off by
 default** and live in the add-on's **Configuration** tab:
@@ -122,7 +122,7 @@ natively, the Search/Fetch patch and its two options can be removed.
 
 ### DeepSeek images (native provider, experimental patch)
 
-Upstream AnythingLLM 1.18.0 hard-codes the native DeepSeek provider as
+Upstream AnythingLLM 1.19.0 hard-codes the native DeepSeek provider as
 text-only and silently drops chat images. That is out of date: DeepSeek's
 `deepseek-flash` accepts JPEG/PNG/GIF/WebP images as OpenAI-compatible
 `image_url` blocks (base64, external URL, or Files API). The add-on patch
@@ -144,13 +144,13 @@ PDFs are not images: DeepSeek's API accepts text and images, not PDFs
 with `mime: application/anythingllm-document`; the collector extracts the
 text first. See "Knowledge base (RAG)".
 
-The image patch is pinned to 1.18.0 as well and fails the image build if
+The image patch is pinned to 1.19.0 as well and fails the image build if
 an anchor changes; it can be removed once upstream stops treating all
 DeepSeek models as text-only.
 
 ### Tables on small screens
 
-Upstream 1.18.0 clips wide markdown tables on narrow screens because the
+Upstream 1.19.0 clips wide markdown tables on narrow screens because the
 table CSS uses `width: 100%` and `overflow: hidden` without a scroll
 wrapper. The add-on appends a small CSS override at build time: below
 600 px, `.markdown table` becomes a horizontal scroll container, so all
@@ -217,11 +217,12 @@ agent's "Scrape websites" skill, not to workspace URL ingestion or
 
 ## Local models / built-in LLM
 
-The add-on supports remote endpoints only in practice. The optional
-built-in local LLM engine (Lemonade/llama.cpp) downloads large model
-runtimes at first use and is not suited for low-RAM ARM devices such as
-the Odroid N2+ - use remote API endpoints instead, or a separate
-Ollama server on capable hardware.
+The add-on supports remote endpoints only in practice. Upstream 1.19.0
+bundles an optional built-in local LLM engine (Lemonade/llama.cpp) for
+Docker, but it is off by default and this add-on does not enable it. It
+downloads large model runtimes at first use and is not suited for
+low-RAM ARM devices such as the Odroid N2+ - use remote API endpoints
+instead, or a separate Ollama server on capable hardware.
 
 ## Backups & updates
 
@@ -240,9 +241,10 @@ Ollama server on capable hardware.
   this indicates a binary that requires ARMv8.2+ (LSE) CPU features on
   an ARMv8.0 device (e.g. Odroid N2+ or Raspberry Pi 4/5; a Raspberry
   Pi 3 is instruction-set compatible but has too little RAM). The arm64
-  image was statically scanned and runtime-tested on an ARMv8.0-emulated
-  CPU for the 1.18.0 image, so this should not happen - if it does,
-  please open an issue in the add-on repository with the log excerpt.
+  image was re-scanned statically for 1.19.0 and runtime-tested on an
+  ARMv8.0-emulated CPU for 1.18.0 (same mdpdf/Chromium binaries), so this
+  should not happen - if it does, please open an issue in the add-on
+  repository with the log excerpt.
 - **Adding a URL fails / log shows `Could not find Chrome`, `No usable
   sandbox` or `Running as root without --no-sandbox`**: expected for the
   workspace URL data source and "Website Depth" - the browser is
@@ -264,10 +266,10 @@ Ollama server on capable hardware.
   provider is loaded. PDFs go through the document/OCR path, not the
   vision path.
 - **Wide table is cut off on the phone**: make sure the add-on runs
-  **1.18.0-ha5** or newer and hard-refresh the web UI. Below 600 px the
-  markdown table is horizontally scrollable; on wider screens the normal
-  table layout applies. This only affects markdown tables, not PDFs or
-  code blocks.
+  **1.18.0-ha5** or **1.19.0-ha1** (or newer) and hard-refresh the web UI.
+  Below 600 px the markdown table is horizontally scrollable; on wider
+  screens the normal table layout applies. This only affects markdown
+  tables, not PDFs or code blocks.
 - **Cannot write to /data**: the add-on runs the app as root inside the
   container on purpose (the persistent volume is root-owned); if you
   changed the image, keep the `USER root` directive.

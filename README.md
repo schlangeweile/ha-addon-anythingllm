@@ -17,32 +17,34 @@ Search/Fetch APIs (off by default), image attachments for the native
 provider's vision model (`deepseek-flash`), and a small CSS override for
 wide markdown tables on phones; see below.
 
-> **Status:** experimental, but verified. The arm64 image passed a static
-> LSE-atomics scan and ARMv8.0 runtime emulation (safe for Odroid N2+ /
-> Raspberry Pi 4/5 class devices); the amd64 build passed a full smoke
-> test (onboarding, chat, RAG with citations, multi-user isolation,
-> persistence across container recreation). Measured RAM: ~310 MiB idle /
-> ~315 MiB under load on amd64. Final confirmation on real Odroid N2+
-> hardware is still pending - see the add-on changelog for details.
-> The add-on layer is at **1.18.0-ha5** (consistent cold backups, Open Web
+> **Status:** experimental, but verified. The 1.18.0 arm64 image passed a
+> static LSE-atomics scan and ARMv8.0 runtime emulation; the 1.19.0 arm64
+> binaries were re-scanned statically (same `mdpdf` 0.1.10 and Chromium
+> 1088 as 1.18.0, whose QEMU cortex-a53 run proved the outline-atomics
+> fallback). The 1.18.0 amd64 build passed the full smoke test (onboarding,
+> chat, RAG with citations, multi-user isolation, persistence); 1.19.0-ha1
+> passed a boot/API/persistence smoke test. Measured RAM: ~290 MiB idle on
+> amd64 (1.19.0-ha1). Final confirmation on real Odroid N2+ hardware is
+> still pending - see the add-on changelog for details.
+> The add-on layer is at **1.19.0-ha1** (consistent cold backups, Open Web
 > UI button, documentation fixes, an optional experimental DeepSeek
 > Search/Fetch patch, native DeepSeek image support for `deepseek-flash`,
 > and a mobile table-scroll CSS fix); the bundled AnythingLLM image is
-> unchanged from 1.18.0.
+> **1.19.0**.
 
 | Architecture | Status |
 | ------------ | ------ |
-| aarch64 (ARMv8.0) | statically + emulated verified; on-device test pending |
-| amd64        | full smoke test passed (chat, RAG, multi-user, persistence) |
+| aarch64 (ARMv8.0) | 1.18.0 statically + emulated verified; 1.19.0 re-scanned statically; on-device test pending |
+| amd64        | 1.18.0 full smoke test; 1.19.0-ha1 boot/API/persistence smoke test passed |
 
 ## Requirements
 
 - Home Assistant OS or Supervised, aarch64 or amd64.
-- ~1 GB download and ~4.4 GiB free disk for the image, plus room for
+- ~1.1 GB download and ~4.9 GiB free disk for the image, plus room for
   documents, the vector cache and LanceDB under `/data`.
-- ~0.5 GB RAM (measured ~310 MiB idle on amd64). 2 GB total is enough for
-  chat and RAG; 4 GB is comfortable. A Raspberry Pi 3 (1 GB) is
-  instruction-set compatible but too small to run this add-on.
+- ~0.5 GB RAM (measured ~290 MiB idle on amd64 with 1.19.0-ha1).
+  2 GB total is enough for chat and RAG; 4 GB is comfortable. A Raspberry
+  Pi 3 (1 GB) is instruction-set compatible but too small to run this add-on.
 
 ## Web search vs. web pages
 
@@ -124,7 +126,7 @@ supervisor offers the add-on update in the store. CI fails the build if
 those two versions drift apart. Database migrations apply automatically
 on start.
 
-The experimental DeepSeek patches are pinned to AnythingLLM 1.18.0; on an
+The experimental DeepSeek patches are pinned to AnythingLLM 1.19.0; on an
 upstream bump the patcher must be re-checked (the image build fails if an
 anchor moved). Remove the Search/Fetch patch and its two options once
 upstream supports DeepSeek Search natively; the image patch can be dropped

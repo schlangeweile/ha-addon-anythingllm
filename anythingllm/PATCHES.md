@@ -1,13 +1,16 @@
-# Add-on patches (AnythingLLM 1.18.0-ha5)
+# Add-on patches (AnythingLLM 1.19.0-ha1)
 
 This add-on is a thin layer on the pinned upstream image
-`mintplexlabs/anythingllm:1.18.0`, plus the build-time patch layer in
+`mintplexlabs/anythingllm:1.19.0`, plus the build-time patch layer in
 [`patches/`](patches/). This file is the central inventory of every
 patch, the exact upstream anchors it relies on, and the checklist for an
 upstream bump.
 
 The authoritative implementation is [`patches/apply.js`](patches/apply.js).
 Patches are applied at image build time, not at runtime.
+
+The anchors were re-checked against AnythingLLM 1.19.0; the snippets are
+unchanged from the 1.18.0-ha5 patch layer.
 
 ## Patch inventory
 
@@ -33,7 +36,7 @@ Most edits use `replaceOnce(content, needle, replacement, label)`:
 - the anchor must occur **exactly once** in the upstream file, otherwise
   the build fails with
   `[deepseek-patch] ERROR: expected exactly one anchor for <label>, found N`;
-- `EXPECTED_VERSION = "1.18.0"` is checked against the upstream image's
+- `EXPECTED_VERSION = "1.19.0"` is checked against the upstream image's
   `DEPLOYMENT_VERSION` before any file is touched;
 - the labels below are the third argument passed to `replaceOnce`.
 
@@ -320,4 +323,5 @@ docker run --rm --entrypoint sh anythingllm-ha:test -c '
 ```
 
 The build log must include `[deepseek-patch] done` and list every patched
-file. For a full prompt-level check, see the ha5 changelog entry.
+file. For a full prompt-level check, see the 1.18.0-ha4 and 1.18.0-ha5
+changelog entries; the patch code is unchanged in 1.19.0-ha1.

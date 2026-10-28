@@ -8,7 +8,7 @@
 # Pin only plain version tags. The pg-/railway-/render- prefixed tags are
 # deployment presets for external Postgres platforms (railway/render are
 # amd64-only) - never use them here.
-ARG ANYTHINGLLM_VERSION=1.18.0
+ARG ANYTHINGLLM_VERSION=1.19.0
 FROM mintplexlabs/anythingllm:${ANYTHINGLLM_VERSION}
 
 # Home Assistant mounts /data root-owned and does not override the image
@@ -18,7 +18,7 @@ FROM mintplexlabs/anythingllm:${ANYTHINGLLM_VERSION}
 # as root inside the isolated add-on container (usual add-on trust level).
 USER root
 
-# Everything persistent must live on the add-on /data volume. Upstream 1.18.0
+# Everything persistent must live on the add-on /data volume. Upstream 1.19.0
 # honors STORAGE_DIR for documents/LanceDB/vector-cache, but the SQLite
 # database and the runtime .env are written relative to /app/server instead
 # (schema.prisma has a literal url "file:../storage/anythingllm.db", the env
@@ -40,7 +40,7 @@ RUN rm -rf /app/server/storage \
 
 # Experimental local patch (not upstream): DeepSeek Search/Fetch support,
 # image attachments for the native DeepSeek provider, and a mobile
-# markdown-table CSS override. Upstream 1.18.0 has no DeepSeek web-search
+# markdown-table CSS override. Upstream 1.19.0 has no DeepSeek web-search
 # provider, so this layer adds one plus an optional DeepSeek Fetch path for
 # the agent's scrape skill. Both are off by default and controlled by the
 # add-on options deepseek_search / deepseek_fetch. Upstream also hard-codes
@@ -56,7 +56,7 @@ COPY patches /opt/anythingllm-patches
 RUN node /opt/anythingllm-patches/apply.js \
  && rm -rf /opt/anythingllm-patches
 
-# Privacy: opt out of anonymous telemetry. Upstream 1.18.0 evaluates
+# Privacy: opt out of anonymous telemetry. Upstream 1.19.0 evaluates
 # DISABLE_TELEMETRY (server/utils/telemetry/index.js); the older
 # DISABLE_ANONYMOUS_TELEMETRY name is silently ignored. The entrypoint
 # separately sets CHECKPOINT_DISABLE=1 (Prisma telemetry).

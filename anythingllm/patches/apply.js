@@ -7,7 +7,7 @@
  *
  * The add-on is normally a thin image on top of the official AnythingLLM
  * image. This patch deliberately changes the upstream code for three reasons:
- * upstream 1.18.0 has no DeepSeek web-search provider, its native DeepSeek
+ * upstream 1.19.0 has no DeepSeek web-search provider, its native DeepSeek
  * provider hard-codes the model as text-only even though deepseek-flash
  * accepts images, and its markdown tables clip horizontally on narrow
  * screens. The changes are:
@@ -30,7 +30,7 @@ const fs = require("fs");
 const path = require("path");
 
 const APP_DIR = "/app";
-const EXPECTED_VERSION = "1.18.0";
+const EXPECTED_VERSION = "1.19.0";
 
 function fail(message) {
   console.error(`[deepseek-patch] ERROR: ${message}`);
@@ -161,7 +161,7 @@ collectorApi = replaceOnce(
 writeApp("server/utils/collectorApi/index.js", collectorApi);
 
 // 5. Native DeepSeek provider: pass image attachments through to
-//    vision-capable models (deepseek-flash). Upstream 1.18.0 treats every
+//    vision-capable models (deepseek-flash). Upstream 1.19.0 treats every
 //    DeepSeek model as text-only and drops images in both chat and agent mode.
 let deepseekChat = readApp("server/utils/AiProviders/deepseek/index.js");
 deepseekChat = replaceOnce(
