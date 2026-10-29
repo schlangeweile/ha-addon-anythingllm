@@ -11,8 +11,9 @@ as DashScope/Ollama, and more).
 The add-on is a single service based on the official multi-arch
 AnythingLLM image, plus an experimental local patch for DeepSeek: the
 optional Search/Fetch APIs (off by default) and image attachments for the
-native provider's `deepseek-flash` vision model. The image also adds a
-small CSS override that makes wide markdown tables scrollable on phones.
+native provider's `deepseek-flash` vision model. The image also adds small
+CSS overrides that make wide markdown tables scrollable on phones and keep
+the workspace-settings forms readable on narrow screens.
 Inside the container the upstream entrypoint runs the web app and its
 document collector; the embedded SQLite database and the LanceDB vector
 store require no external services.
@@ -158,6 +159,26 @@ columns stay reachable by swiping. This is display-only, needs no add-on
 option, and does not change the model output. Wider screens keep the
 normal table layout.
 
+### Workspace settings on small screens
+
+The workspace settings (gear icon in a workspace row) use the same
+layout in upstream 1.19.0 as on a wide desktop: every form is pinned to
+`w-1/2` and the page keeps a fixed 64 px horizontal padding. On a phone
+that leaves a very narrow form column, so labels and descriptions wrap
+word by word and the page becomes much longer than necessary.
+
+The add-on appends a CSS override at build time. Below the Tailwind xl
+breakpoint (1280 px) the forms use the full content width; below md
+(768 px) the page padding drops to 16 px as well. At a 390 px phone width
+this grows the chat-settings form from about 131 px to 358 px and reduces
+the height of the description block from 144 px to 48 px. Screens at 1280 px and wider keep
+the upstream 50 % form width. This is display-only, needs no add-on
+option, and does not change any saved setting.
+
+Upstream `master` still had the fixed `w-1/2` form width when this was
+checked (2026-10-29); the override can be removed once upstream makes the
+settings layout responsive.
+
 ### Build-time patch inventory
 
 A maintainer-facing inventory of all build-time patches, their exact
@@ -270,6 +291,10 @@ instead, or a separate Ollama server on capable hardware.
   Below 600 px the markdown table is horizontally scrollable; on wider
   screens the normal table layout applies. This only affects markdown
   tables, not PDFs or code blocks.
+- **Workspace settings are squeezed on a phone or narrow window**: make
+  sure the add-on runs **1.19.0-ha2** or newer and hard-refresh the web UI.
+  Below 1280 px the settings forms use the full content width and below
+  768 px the page padding is 16 px; desktop keeps the upstream 50 % width.
 - **Cannot write to /data**: the add-on runs the app as root inside the
   container on purpose (the persistent volume is root-owned); if you
   changed the image, keep the `USER root` directive.

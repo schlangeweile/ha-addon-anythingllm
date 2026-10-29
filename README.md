@@ -14,28 +14,28 @@ object storage, no extra services - SQLite and the LanceDB vector store
 are embedded, and all state persists on the add-on's data volume. The
 image also contains an experimental local patch for DeepSeek: optional
 Search/Fetch APIs (off by default), image attachments for the native
-provider's vision model (`deepseek-flash`), and a small CSS override for
-wide markdown tables on phones; see below.
+provider's vision model (`deepseek-flash`), and small CSS overrides for
+wide markdown tables and the workspace-settings layout on phones; see below.
 
 > **Status:** experimental, but verified. The 1.18.0 arm64 image passed a
 > static LSE-atomics scan and ARMv8.0 runtime emulation; the 1.19.0 arm64
 > binaries were re-scanned statically (same `mdpdf` 0.1.10 and Chromium
 > 1088 as 1.18.0, whose QEMU cortex-a53 run proved the outline-atomics
 > fallback). The 1.18.0 amd64 build passed the full smoke test (onboarding,
-> chat, RAG with citations, multi-user isolation, persistence); 1.19.0-ha1
+> chat, RAG with citations, multi-user isolation, persistence); 1.19.0-ha2
 > passed a boot/API/persistence smoke test. Measured RAM: ~290 MiB idle on
 > amd64 (1.19.0-ha1). Final confirmation on real Odroid N2+ hardware is
 > still pending - see the add-on changelog for details.
-> The add-on layer is at **1.19.0-ha1** (consistent cold backups, Open Web
+> The add-on layer is at **1.19.0-ha2** (consistent cold backups, Open Web
 > UI button, documentation fixes, an optional experimental DeepSeek
 > Search/Fetch patch, native DeepSeek image support for `deepseek-flash`,
-> and a mobile table-scroll CSS fix); the bundled AnythingLLM image is
-> **1.19.0**.
+> and mobile CSS fixes for tables and workspace settings); the bundled
+> AnythingLLM image is **1.19.0**.
 
 | Architecture | Status |
 | ------------ | ------ |
 | aarch64 (ARMv8.0) | 1.18.0 statically + emulated verified; 1.19.0 re-scanned statically; on-device test pending |
-| amd64        | 1.18.0 full smoke test; 1.19.0-ha1 boot/API/persistence smoke test passed |
+| amd64        | 1.18.0 full smoke test; 1.19.0-ha2 boot/API/persistence smoke test passed |
 
 ## Requirements
 
@@ -79,11 +79,18 @@ A complete inventory of the build-time patches, their exact upstream
 anchors and the upstream-bump checklist is in
 [anythingllm/PATCHES.md](anythingllm/PATCHES.md).
 
-## Mobile tables
+## Mobile layout fixes
 
-On screens up to 600 px, wide markdown tables are horizontally scrollable
-instead of being clipped, so all columns stay reachable. This is a
-display-only CSS patch in the add-on image; no add-on option is needed.
+- On screens up to 600 px, wide markdown tables are horizontally scrollable
+  instead of being clipped, so all columns stay reachable.
+- In the workspace settings (gear icon in a workspace row), the forms use
+  the full content width below 1280 px and the page padding drops to 16 px
+  on phones. Labels and descriptions therefore no longer wrap word by word;
+  at 390 px the chat-settings form grows from 131 px to 358 px. Wider
+  screens keep the upstream 50 % form width.
+
+Both are display-only CSS patches in the add-on image; no add-on option is
+needed.
 
 ## Why this exists
 

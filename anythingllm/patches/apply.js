@@ -2,15 +2,16 @@
 "use strict";
 
 /**
- * Fail-fast patch layer for DeepSeek Search/Fetch, native image support and
- * mobile markdown-table scrolling.
+ * Fail-fast patch layer for DeepSeek Search/Fetch, native image support,
+ * mobile markdown-table scrolling and responsive workspace settings.
  *
  * The add-on is normally a thin image on top of the official AnythingLLM
- * image. This patch deliberately changes the upstream code for three reasons:
+ * image. This patch deliberately changes the upstream code for four reasons:
  * upstream 1.19.0 has no DeepSeek web-search provider, its native DeepSeek
  * provider hard-codes the model as text-only even though deepseek-flash
- * accepts images, and its markdown tables clip horizontally on narrow
- * screens. The changes are:
+ * accepts images, its markdown tables clip horizontally on narrow screens,
+ * and its workspace-settings forms stay at 50% width with 64 px page padding
+ * on narrow screens (labels wrap word by word). The changes are:
  *
  *   1. server/utils/agents/aibitat/plugins/helpers/deepseek.js (new helper)
  *   2. server/utils/agents/aibitat/plugins/web-browsing.js (provider)
@@ -20,6 +21,8 @@
  *      server/utils/agents/aibitat/providers/deepseek.js (image attachments
  *      for vision-capable DeepSeek models)
  *   6. server/public/index.css (mobile markdown-table horizontal scroll)
+ *   7. server/public/index.css (responsive workspace-settings form width and
+ *      page padding on narrow screens)
  *
  * The script asserts the pinned upstream version and fails the image build if
  * an anchor is no longer present. That is intentional: on every upstream
@@ -252,12 +255,32 @@ writeApp("server/utils/agents/aibitat/providers/deepseek.js", deepseekAgent);
 //    Upstream clips them with `.markdown table { overflow: hidden; }` and has
 //    no wrapper. Append the CSS override once; the marker prevents duplicate
 //    CSS if this step is retried.
+// 7. Make the workspace-settings forms responsive. Upstream pins them to
+//    `w-1/2` and pads the page with `px-16`, which squeezes form labels into a
+//    very narrow column on phones and narrow desktop windows.
 let indexCss = readApp("server/public/index.css");
 if (!indexCss.includes(".markdown table")) {
   fail("could not find the .markdown table rule in server/public/index.css");
 }
-if (!indexCss.includes("anythingllm-ha: markdown-table-scroll")) {
+if (!indexCss.includes(".w-1\\/2")) {
+  fail("could not find the .w-1/2 rule in server/public/index.css");
+}
+if (!indexCss.includes(".px-16")) {
+  fail("could not find the .px-16 rule in server/public/index.css");
+}
+const hasTablePatch = indexCss.includes(
+  "anythingllm-ha: markdown-table-scroll"
+);
+const hasSettingsPatch = indexCss.includes(
+  "anythingllm-ha: workspace-settings-responsive"
+);
+if (!hasTablePatch) {
   indexCss += "\n" + readSnippet("markdown-table-scroll.css");
+}
+if (!hasSettingsPatch) {
+  indexCss += "\n" + readSnippet("workspace-settings-responsive.css");
+}
+if (!hasTablePatch || !hasSettingsPatch) {
   writeApp("server/public/index.css", indexCss);
 }
 

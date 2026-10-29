@@ -1,4 +1,4 @@
-# Add-on patches (AnythingLLM 1.19.0-ha1)
+# Add-on patches (AnythingLLM 1.19.0-ha2)
 
 This add-on is a thin layer on the pinned upstream image
 `mintplexlabs/anythingllm:1.19.0`, plus the build-time patch layer in
@@ -9,8 +9,9 @@ upstream bump.
 The authoritative implementation is [`patches/apply.js`](patches/apply.js).
 Patches are applied at image build time, not at runtime.
 
-The anchors were re-checked against AnythingLLM 1.19.0; the snippets are
-unchanged from the 1.18.0-ha5 patch layer.
+The anchors were re-checked against AnythingLLM 1.19.0. The server snippets are
+unchanged from the 1.18.0-ha5 patch layer; 1.19.0-ha2 adds the second CSS
+snippet (#8) for narrow workspace-settings screens.
 
 ## Patch inventory
 
@@ -23,11 +24,13 @@ unchanged from the 1.18.0-ha5 patch layer.
 | 5 | [`snippets/deepseek-chat-images.js`](patches/snippets/deepseek-chat-images.js) | `server/utils/AiProviders/deepseek/index.js` | Image attachments in normal chat for `deepseek-flash` | none | Upstream treats DeepSeek as vision-capable |
 | 6 | [`snippets/deepseek-agent-images.js`](patches/snippets/deepseek-agent-images.js) | `server/utils/agents/aibitat/providers/deepseek.js` | Image attachments in agent mode plus `#stripAttachments` guard | none | Same as #5 |
 | 7 | [`snippets/markdown-table-scroll.css`](patches/snippets/markdown-table-scroll.css) | `server/public/index.css` | Horizontal scrolling for wide markdown tables on screens up to 600 px | none | Upstream makes markdown tables scrollable itself |
+| 8 | [`snippets/workspace-settings-responsive.css`](patches/snippets/workspace-settings-responsive.css) | `server/public/index.css` | Full-width workspace-settings forms below 1280 px and 16 px page padding below 768 px | none | Upstream makes its workspace-settings layout responsive |
 
 The image patch (#5/#6) is always applied; it only affects the native
-DeepSeek provider. The table-scroll patch (#7) is also always applied but
-only affects chat markdown tables below the 600 px breakpoint. Only the
-Search/Fetch behaviour is controlled by the two add-on options.
+DeepSeek provider. The two CSS patches (#7/#8) are also always applied: #7
+only affects chat markdown tables below the 600 px breakpoint, and #8 only
+affects the workspace-settings page below the Tailwind xl/md breakpoints.
+Only the Search/Fetch behaviour is controlled by the two add-on options.
 
 ## Anchor map
 
@@ -40,8 +43,8 @@ Most edits use `replaceOnce(content, needle, replacement, label)`:
   `DEPLOYMENT_VERSION` before any file is touched;
 - the labels below are the third argument passed to `replaceOnce`.
 
-The new helper (#1) is a whole-file copy and the CSS patch (#7) is a guarded
-append; both are called out separately below.
+The new helper (#1) is a whole-file copy; the two CSS patches (#7/#8) are
+guarded appends. All three are called out separately below.
 
 ### 1. New helper file
 
@@ -216,6 +219,52 @@ append; both are called out separately below.
   API, or tables on wider screens; it only makes the table swipeable on
   phones.
 
+### 8. `server/public/index.css` (workspace settings on narrow screens)
+
+- No `replaceOnce` anchor. `apply.js` verifies that `.w-1\/2` and `.px-16`
+  exist in the built stylesheet, then appends
+  [`snippets/workspace-settings-responsive.css`](patches/snippets/workspace-settings-responsive.css)
+  once. The `anythingllm-ha: workspace-settings-responsive` marker keeps
+  the CSS append itself idempotent.
+- If either class is missing, the build fails with
+  `[deepseek-patch] ERROR: could not find the .w-1/2 rule ...` or
+  `could not find the .px-16 rule ...`.
+- Upstream builds every workspace-settings form with `w-1/2` and wraps the
+  page content in `px-16 py-6`. On a narrow window the form is only half of
+  an already narrow content column, so the labels and descriptions wrap
+  every few words. The override uses the full content width below the xl
+  breakpoint and reduces the page padding on phones:
+
+  ```css
+  /* anythingllm-ha: workspace-settings-responsive
+   * Keep in sync with anythingllm/PATCHES.md.
+   * Upstream pins every workspace-settings form to `w-1/2` and pads the page
+   * with a fixed `px-16` (64 px per side). On a narrow window that leaves only
+   * a fraction of an already narrow column, so labels wrap word by word.
+   * Below the xl breakpoint (1280 px) the form uses the full content width;
+   * on phones the page padding shrinks to 16 px as well. Only the workspace
+   * settings page uses `form.w-1/2` and `div.px-16.py-6`, so this is scoped.
+   */
+  @media (max-width: 1279px) {
+    form.w-1\/2 {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 767px) {
+    div.px-16.py-6 {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+  ```
+
+- This is also display-only. It does not change the form fields, the save
+  behaviour or the API, and it leaves the desktop layout (>= 1280 px) at
+  the upstream 50 % width. The selectors are safe because only the
+  workspace-settings pages use `form.w-1/2` and `div.px-16.py-6` in
+  1.19.0.
+
 ## Vision behaviour
 
 - Vision-capable model names in the patch:
@@ -248,9 +297,10 @@ Consequences:
   not silently overwritten by the release.
 - If an anchor moved, `apply.js` fails the image build before the image
   is published. That is intentional: no patch silently stops applying.
-- The new helper (#1) and the CSS append (#7) do not use `replaceOnce`:
-  #1 is a whole-file copy (watch for a path collision on bump), #7 checks
-  for the `.markdown table` rule and appends once via its marker.
+- The new helper (#1) and the CSS appends (#7/#8) do not use `replaceOnce`:
+  #1 is a whole-file copy (watch for a path collision on bump); #7 checks
+  for the `.markdown table` rule, #8 for `.w-1\/2` + `.px-16`, and both
+  append once via their markers.
 - If upstream already implements one of the patched features, the patch
   becomes redundant or conflicts with the new implementation. Remove it
   and its options instead of forcing the old anchor.
@@ -269,8 +319,9 @@ Consequences:
    - `server/utils/agents/aibitat/providers/deepseek.js`
    - `server/public/index.css`
 4. Check whether upstream now supports DeepSeek Search/Fetch, DeepSeek
-   vision, or scrollable markdown tables; remove the corresponding
-   patch(es) and options instead of carrying a redundant patch.
+   vision, scrollable markdown tables or a responsive workspace-settings
+   layout; remove the corresponding patch(es) and options instead of
+   carrying a redundant patch.
 5. Re-verify the add-on integration points: the three storage symlinks
    (`/app/server/storage`, `/app/server/.env`, `/collector/hotdir`), the
    entrypoint contract, and ARMv8.0 if native binaries changed.
@@ -299,7 +350,8 @@ Consequences:
 - Remove step 5 from `apply.js` and delete:
   - `patches/snippets/deepseek-chat-images.js`
   - `patches/snippets/deepseek-agent-images.js`
-- Keep the Search/Fetch and table-scroll patches if they are still needed.
+- Keep the Search/Fetch, table-scroll and responsive-settings patches if
+  they are still needed.
 - Update `DOCS.md` and `README.md` to describe the upstream behaviour.
 
 ### When upstream makes markdown tables scrollable
@@ -307,6 +359,13 @@ Consequences:
 - Remove step 6 from `apply.js` and delete
   `patches/snippets/markdown-table-scroll.css`.
 - Remove the mobile-table notes from `DOCS.md` and `README.md`.
+- Remove the patch row and anchor section from this file.
+
+### When upstream makes workspace settings responsive
+
+- Remove step 7 from `apply.js` and delete
+  `patches/snippets/workspace-settings-responsive.css`.
+- Remove the narrow-screen notes from `DOCS.md` and `README.md`.
 - Remove the patch row and anchor section from this file.
 
 ## Verification after changing this layer
@@ -317,11 +376,12 @@ cd anythingllm
 docker build -t anythingllm-ha:test .
 docker run --rm --entrypoint sh anythingllm-ha:test -c '
   grep -n "markdown-table-scroll" /app/server/public/index.css
+  grep -n "workspace-settings-responsive" /app/server/public/index.css
   grep -R "supportsVision" /app/server/utils/AiProviders/deepseek \
     /app/server/utils/agents/aibitat/providers/deepseek.js
 '
 ```
 
 The build log must include `[deepseek-patch] done` and list every patched
-file. For a full prompt-level check, see the 1.18.0-ha4 and 1.18.0-ha5
-changelog entries; the patch code is unchanged in 1.19.0-ha1.
+file. For a full prompt-level check, see the 1.18.0-ha4, 1.18.0-ha5 and
+1.19.0-ha2 changelog entries.

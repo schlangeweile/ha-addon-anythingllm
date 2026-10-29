@@ -39,16 +39,19 @@ RUN rm -rf /app/server/storage \
  && ln -s /app/collector/hotdir /collector/hotdir
 
 # Experimental local patch (not upstream): DeepSeek Search/Fetch support,
-# image attachments for the native DeepSeek provider, and a mobile
-# markdown-table CSS override. Upstream 1.19.0 has no DeepSeek web-search
-# provider, so this layer adds one plus an optional DeepSeek Fetch path for
-# the agent's scrape skill. Both are off by default and controlled by the
-# add-on options deepseek_search / deepseek_fetch. Upstream also hard-codes
-# DeepSeek as text-only and drops chat images even though deepseek-flash
-# accepts them; the patch forwards images for that model (and still strips
-# them for text-only models such as deepseek-v4-pro). Finally, upstream clips
-# wide markdown tables on narrow screens; the CSS override makes the table
-# horizontally scrollable below 600 px. The patch script fails the build if
+# image attachments for the native DeepSeek provider, a mobile markdown-table
+# CSS override, and a responsive workspace-settings layout fix. Upstream
+# 1.19.0 has no DeepSeek web-search provider, so this layer adds one plus an
+# optional DeepSeek Fetch path for the agent's scrape skill. Both are off by
+# default and controlled by the add-on options deepseek_search /
+# deepseek_fetch. Upstream also hard-codes DeepSeek as text-only and drops
+# chat images even though deepseek-flash accepts them; the patch forwards
+# images for that model (and still strips them for text-only models such as
+# deepseek-v4-pro). Upstream clips wide markdown tables on narrow screens;
+# one CSS override makes the table horizontally scrollable below 600 px. It
+# also pins workspace-settings forms to half width with 64 px page padding,
+# so the second CSS override uses the full content width below the xl
+# breakpoint and 16 px padding on phones. The patch script fails the build if
 # the pinned upstream version or an anchor changes - re-check patches/ on
 # every upstream bump. Remove the Search/Fetch part once upstream supports
 # DeepSeek Search natively.

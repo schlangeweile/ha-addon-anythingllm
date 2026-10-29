@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.19.0-ha2
+
+- Narrow-screen workspace settings: upstream 1.19.0 pins every settings
+  form to `w-1/2` and pads the page with a fixed `px-16` (64 px per side),
+  so on a phone the form is only half of an already narrow content column
+  and labels/descriptions wrap word by word. The image now appends a CSS
+  override: below the xl breakpoint (1280 px) the forms use the full
+  content width, and below md (768 px) the page padding drops to 16 px.
+  At 390 px the chat-settings form grows from 131 px to 358 px (the first
+  description shrinks from 144 px to 48 px tall); at a 696 px desktop
+  window it grows from 141 px to 377 px. Screens at 1280 px and wider keep
+  the upstream 50 % width (verified 539.5 of 1079 px at 1512 px).
+  Display-only: no option, API or data change.
+- Patch layer: new `patches/snippets/workspace-settings-responsive.css`
+  and step 7 in `patches/apply.js`. `apply.js` verifies that the `.w-1/2`
+  and `.px-16` rules exist, appends the override once (marker
+  `anythingllm-ha: workspace-settings-responsive`) and fails the build if
+  either upstream class is gone.
+- Tests: amd64 image rebuilt; add-on linter clean; the marker is present
+  exactly once. Headless Chromium at 390x844 (mobile UA) and 696x1074
+  (desktop UA) shows the fixed layout; the general-appearance,
+  vector-database and agent-config forms are also full width at 390 px,
+  and there is no horizontal body overflow. Restarting the container kept
+  the login, workspace and SQLite state.
+- Docs: README, DOCS and PATCHES.md describe the narrow-screen behaviour,
+  the new patch and its removal condition. Upstream `master` still uses
+  the fixed `w-1/2` form width (checked 2026-10-29).
+
 ## 1.19.0-ha1
 
 - Bump the pinned upstream image to **AnythingLLM 1.19.0** (plain

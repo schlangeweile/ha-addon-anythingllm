@@ -1,0 +1,21 @@
+/* anythingllm-ha: workspace-settings-responsive
+ * Keep in sync with anythingllm/PATCHES.md.
+ * Upstream pins every workspace-settings form to `w-1/2` and pads the page
+ * with a fixed `px-16` (64 px per side). On a narrow window that leaves only
+ * a fraction of an already narrow column, so labels wrap word by word.
+ * Below the xl breakpoint (1280 px) the form uses the full content width;
+ * on phones the page padding shrinks to 16 px as well. Only the workspace
+ * settings page uses `form.w-1/2` and `div.px-16.py-6`, so this is scoped.
+ */
+@media (max-width: 1279px) {
+  form.w-1\/2 {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.px-16.py-6 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
