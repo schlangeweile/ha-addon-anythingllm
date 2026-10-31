@@ -4,3 +4,4 @@ AGENTS.md
 .zcodeignore
 lse_scan.py
 mock_openai.py
+feature-requests/
