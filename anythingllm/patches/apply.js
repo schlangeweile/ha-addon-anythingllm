@@ -2,16 +2,15 @@
 "use strict";
 
 /**
- * Fail-fast patch layer for DeepSeek Search/Fetch, native image support,
- * mobile markdown-table scrolling and responsive workspace settings.
+ * Fail-fast server patch layer: DeepSeek Search/Fetch, native image support
+ * and a Content-Security-Policy.
  *
  * The add-on is normally a thin image on top of the official AnythingLLM
- * image. This patch deliberately changes the upstream code for four reasons:
- * upstream 1.19.0 has no DeepSeek web-search provider, its native DeepSeek
- * provider hard-codes the model as text-only even though deepseek-flash
- * accepts images, its markdown tables clip horizontally on narrow screens,
- * and its workspace-settings forms stay at 50% width with 64 px page padding
- * on narrow screens (labels wrap word by word). The changes are:
+ * image. This patch deliberately changes the upstream server code for three
+ * reasons: upstream 1.19.0 has no DeepSeek web-search provider, its native
+ * DeepSeek provider hard-codes the model as text-only even though
+ * deepseek-flash accepts images, and the SPA has no CSP despite storing its
+ * JWT in localStorage. The changes are:
  *
  *   1. server/utils/agents/aibitat/plugins/helpers/deepseek.js (new helper)
  *   2. server/utils/agents/aibitat/plugins/web-browsing.js (provider)
@@ -20,10 +19,10 @@
  *   5. server/utils/AiProviders/deepseek/index.js and
  *      server/utils/agents/aibitat/providers/deepseek.js (image attachments
  *      for vision-capable DeepSeek models)
- *   6. server/public/index.css (mobile markdown-table horizontal scroll)
- *   7. server/public/index.css (responsive workspace-settings form width and
- *      page padding on narrow screens)
- *   8. server/index.js (Content-Security-Policy for the production SPA)
+ *   6. server/index.js (Content-Security-Policy for the production SPA)
+ *
+ * Frontend changes, including the two former CSS snippets, live in the UI
+ * fork (public branch ha-ui/v1.19.0) and are copied in as a built overlay.
  *
  * The script asserts the pinned upstream version and fails the image build if
  * an anchor is no longer present. That is intentional: on every upstream
@@ -252,7 +251,7 @@ deepseekAgent = replaceOnce(
 );
 writeApp("server/utils/agents/aibitat/providers/deepseek.js", deepseekAgent);
 
-// 8. Enforce a Content-Security-Policy on the production SPA. The JWT is kept
+// 6. Enforce a Content-Security-Policy on the production SPA. The JWT is kept
 //    in localStorage, so without a CSP a single successful XSS can read and
 //    exfiltrate it. Add the header before express.static and the SPA
 //    catch-all, which are the only production routes that serve HTML.
@@ -265,38 +264,5 @@ serverIndex = replaceOnce(
   "server CSP header"
 );
 writeApp("server/index.js", serverIndex);
-
-// 6. Make wide markdown tables horizontally scrollable on narrow screens.
-//    Upstream clips them with `.markdown table { overflow: hidden; }` and has
-//    no wrapper. Append the CSS override once; the marker prevents duplicate
-//    CSS if this step is retried.
-// 7. Make the workspace-settings forms responsive. Upstream pins them to
-//    `w-1/2` and pads the page with `px-16`, which squeezes form labels into a
-//    very narrow column on phones and narrow desktop windows.
-let indexCss = readApp("server/public/index.css");
-if (!indexCss.includes(".markdown table")) {
-  fail("could not find the .markdown table rule in server/public/index.css");
-}
-if (!indexCss.includes(".w-1\\/2")) {
-  fail("could not find the .w-1/2 rule in server/public/index.css");
-}
-if (!indexCss.includes(".px-16")) {
-  fail("could not find the .px-16 rule in server/public/index.css");
-}
-const hasTablePatch = indexCss.includes(
-  "anythingllm-ha: markdown-table-scroll"
-);
-const hasSettingsPatch = indexCss.includes(
-  "anythingllm-ha: workspace-settings-responsive"
-);
-if (!hasTablePatch) {
-  indexCss += "\n" + readSnippet("markdown-table-scroll.css");
-}
-if (!hasSettingsPatch) {
-  indexCss += "\n" + readSnippet("workspace-settings-responsive.css");
-}
-if (!hasTablePatch || !hasSettingsPatch) {
-  writeApp("server/public/index.css", indexCss);
-}
 
 console.log("[deepseek-patch] done");
