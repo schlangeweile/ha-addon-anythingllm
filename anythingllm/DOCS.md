@@ -153,11 +153,10 @@ DeepSeek models as text-only.
 
 Upstream 1.19.0 clips wide markdown tables on narrow screens because the
 table CSS uses `width: 100%` and `overflow: hidden` without a scroll
-wrapper. The add-on appends a small CSS override at build time: below
-600 px, `.markdown table` becomes a horizontal scroll container, so all
-columns stay reachable by swiping. This is display-only, needs no add-on
-option, and does not change the model output. Wider screens keep the
-normal table layout.
+wrapper. The UI fork ships a small CSS rule: below 600 px, `.markdown table`
+becomes a horizontal scroll container, so all columns stay reachable by
+swiping. This is display-only, needs no add-on option, and does not change
+the model output. Wider screens keep the normal table layout.
 
 ### Workspace settings on small screens
 
@@ -167,13 +166,13 @@ layout in upstream 1.19.0 as on a wide desktop: every form is pinned to
 that leaves a very narrow form column, so labels and descriptions wrap
 word by word and the page becomes much longer than necessary.
 
-The add-on appends a CSS override at build time. Below the Tailwind xl
-breakpoint (1280 px) the forms use the full content width; below md
-(768 px) the page padding drops to 16 px as well. At a 390 px phone width
-this grows the chat-settings form from about 131 px to 358 px and reduces
-the height of the description block from 144 px to 48 px. Screens at 1280 px and wider keep
-the upstream 50 % form width. This is display-only, needs no add-on
-option, and does not change any saved setting.
+The UI fork ships a CSS rule. Below the Tailwind xl breakpoint (1280 px) the
+forms use the full content width; below md (768 px) the page padding drops to
+16 px as well. At a 390 px phone width this grows the chat-settings form from
+about 131 px to 358 px and reduces the height of the description block from
+144 px to 48 px. Screens at 1280 px and wider keep the upstream 50 % form
+width. This is display-only, needs no add-on option, and does not change any
+saved setting.
 
 Upstream `master` still had the fixed `w-1/2` form width when this was
 checked (2026-10-29); the override can be removed once upstream makes the
@@ -184,6 +183,78 @@ settings layout responsive.
 A maintainer-facing inventory of all build-time patches, their exact
 upstream anchors and the upstream-bump checklist is in
 [PATCHES.md](https://github.com/schlangeweile/ha-addon-anythingllm/blob/master/anythingllm/PATCHES.md).
+
+## UI differences from upstream (UI fork)
+
+Since 1.19.0-ha3 the frontend is built from the public UI fork
+[`schlangeweile/anything-llm`](https://github.com/schlangeweile/anything-llm),
+branch `ha-ui/v1.19.0` (upstream `v1.19.0` plus the UI commits), and copied
+over the upstream image's `server/public`. Server, collector and the
+entrypoint remain upstream. This section lists the user-visible differences;
+all are client-side preferences stored in the browser's `localStorage`,
+except the activity ordering, which the server also persists.
+
+### Thread list
+
+- **UI Preferences → Thread list** limits how many threads are shown. It is
+  off by default; when enabled, the default is 8 (1–100 is accepted). The
+  newest threads stay visible, older ones collapse behind **Show N older
+  threads** / **Show less**.
+- The **active thread is always visible**: if it is older than the limit,
+  the list expands automatically instead of hiding it.
+- **Newest first**, and **New Thread is at the top** of the list.
+- The old connector lines are gone; the list uses one subtle left border.
+- Threads are ordered by **activity**, not creation: sending a message moves
+  the thread to the top immediately, and after a reload (or on a second
+  device) the server-side `lastUpdatedAt` bump keeps it there.
+
+### Collapsing a workspace
+
+The active workspace row has a chevron. It collapses or expands the thread
+list **without navigating**; the workspace name still navigates and opens the
+list. The collapsed state is remembered per workspace slug in the browser.
+Only the active workspace ever shows a thread list, as before.
+
+### Line breaks in your own messages
+
+Newlines and pasted console output in user messages are preserved (one line
+per line) while Markdown lists, links and code fences still render. Assistant
+messages keep the upstream rendering unchanged.
+
+### Message actions
+
+Copy, edit, regenerate, feedback and the kebab menu are always visible at
+60 % opacity and become fully opaque on hover or keyboard focus. Edit and
+resend already existed upstream; this change makes the pencil reachable on
+touch tablets and discoverable on desktop. See the upstream caveats in the
+edit dialog: hidden chats still count against the daily limit and workspace
+memory may already contain the old exchange.
+
+### Keep the screen awake
+
+**UI Preferences → Keep the screen awake** is off by default. While a reply
+is streaming, the app requests a Screen Wake Lock. The API only exists in a
+secure context, so it works through the documented HTTPS reverse proxy; on a
+plain `http://...:3001` URL it silently does nothing. A wake lock does not
+survive tab switches or phone calls, and the server still aborts generation
+when the client disconnects - partial-answer saving (R9/C2) is not
+implemented.
+
+### Content Security Policy
+
+The server sends a `Content-Security-Policy` on production HTML responses:
+`default-src 'self'` with same-origin scripts, inline styles (required by the
+app), `data:`/`blob:` images and media, same-origin WebSockets and
+`'wasm-unsafe-eval'` for the browser TTS worker. `'unsafe-eval'` is not
+allowed. This closes the JWT-in-localStorage XSS gap; if a future UI feature
+uses another origin or an eval-based library, the policy must be extended
+deliberately.
+
+### Tables and workspace settings on small screens
+
+These two display fixes now ship in the UI fork's
+`frontend/src/index.css` instead of being appended by the server patch layer.
+See the two subsections above for the exact behaviour.
 
 ## Where your data lives
 
@@ -287,12 +358,12 @@ instead, or a separate Ollama server on capable hardware.
   provider is loaded. PDFs go through the document/OCR path, not the
   vision path.
 - **Wide table is cut off on the phone**: make sure the add-on runs
-  **1.18.0-ha5** or **1.19.0-ha1** (or newer) and hard-refresh the web UI.
-  Below 600 px the markdown table is horizontally scrollable; on wider
-  screens the normal table layout applies. This only affects markdown
-  tables, not PDFs or code blocks.
+  **1.19.0-ha3** or newer and hard-refresh the web UI. Below 600 px the
+  markdown table is horizontally scrollable; on wider screens the normal
+  table layout applies. This only affects markdown tables, not PDFs or
+  code blocks.
 - **Workspace settings are squeezed on a phone or narrow window**: make
-  sure the add-on runs **1.19.0-ha2** or newer and hard-refresh the web UI.
+  sure the add-on runs **1.19.0-ha3** or newer and hard-refresh the web UI.
   Below 1280 px the settings forms use the full content width and below
   768 px the page padding is 16 px; desktop keeps the upstream 50 % width.
 - **Cannot write to /data**: the add-on runs the app as root inside the

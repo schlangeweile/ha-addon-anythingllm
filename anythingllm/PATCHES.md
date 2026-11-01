@@ -1,17 +1,20 @@
-# Add-on patches (AnythingLLM 1.19.0-ha2)
+# Add-on patches (AnythingLLM 1.19.0-ha3)
 
 This add-on is a thin layer on the pinned upstream image
 `mintplexlabs/anythingllm:1.19.0`, plus the build-time patch layer in
-[`patches/`](patches/). This file is the central inventory of every
-patch, the exact upstream anchors it relies on, and the checklist for an
+[`patches/`](patches/) and a frontend overlay built from the public UI fork.
+This file is the central inventory of every server patch, the exact upstream
+anchors it relies on, the UI-fork delivery model, and the checklist for an
 upstream bump.
 
-The authoritative implementation is [`patches/apply.js`](patches/apply.js).
-Patches are applied at image build time, not at runtime.
+The authoritative implementation of the server patches is
+[`patches/apply.js`](patches/apply.js). Patches are applied at image build
+time, not at runtime. Frontend changes do **not** go through this layer; they
+live in the UI fork (see "UI fork overlay" below).
 
-The anchors were re-checked against AnythingLLM 1.19.0. The server snippets are
-unchanged from the 1.18.0-ha5 patch layer; 1.19.0-ha2 adds the second CSS
-snippet (#8) for narrow workspace-settings screens.
+The anchors were re-checked against AnythingLLM 1.19.0. 1.19.0-ha3 adds the
+CSP and thread-activity patches and moves the two former CSS snippets into the
+fork.
 
 ## Patch inventory
 
@@ -23,14 +26,50 @@ snippet (#8) for narrow workspace-settings screens.
 | 4 | [`snippets/collector-fetch.js`](patches/snippets/collector-fetch.js) | `server/utils/collectorApi/index.js` | DeepSeek Fetch for the agent's "Scrape websites" skill | `deepseek_fetch` | Upstream has native Fetch/scrape support |
 | 5 | [`snippets/deepseek-chat-images.js`](patches/snippets/deepseek-chat-images.js) | `server/utils/AiProviders/deepseek/index.js` | Image attachments in normal chat for `deepseek-flash` | none | Upstream treats DeepSeek as vision-capable |
 | 6 | [`snippets/deepseek-agent-images.js`](patches/snippets/deepseek-agent-images.js) | `server/utils/agents/aibitat/providers/deepseek.js` | Image attachments in agent mode plus `#stripAttachments` guard | none | Same as #5 |
-| 7 | [`snippets/markdown-table-scroll.css`](patches/snippets/markdown-table-scroll.css) | `server/public/index.css` | Horizontal scrolling for wide markdown tables on screens up to 600 px | none | Upstream makes markdown tables scrollable itself |
-| 8 | [`snippets/workspace-settings-responsive.css`](patches/snippets/workspace-settings-responsive.css) | `server/public/index.css` | Full-width workspace-settings forms below 1280 px and 16 px page padding below 768 px | none | Upstream makes its workspace-settings layout responsive |
+| 7 | [`snippets/security-headers.js`](patches/snippets/security-headers.js) | `server/index.js` | Content-Security-Policy for the production SPA | none | Upstream ships a suitable CSP |
+| 8 | [`snippets/thread-activity.js`](patches/snippets/thread-activity.js) | `server/models/workspaceChats.js` | Bump the thread's `lastUpdatedAt` when a chat is saved | none | Upstream bumps thread activity itself |
 
 The image patch (#5/#6) is always applied; it only affects the native
-DeepSeek provider. The two CSS patches (#7/#8) are also always applied: #7
-only affects chat markdown tables below the 600 px breakpoint, and #8 only
-affects the workspace-settings page below the Tailwind xl/md breakpoints.
-Only the Search/Fetch behaviour is controlled by the two add-on options.
+DeepSeek provider. The CSP (#7) and thread-activity (#8) patches are also
+always applied. Only the Search/Fetch behaviour is controlled by the two
+add-on options.
+
+### UI fork overlay
+
+The frontend is **not** patched with `replaceOnce`. It is built from the
+public fork `schlangeweile/anything-llm`, branch `ha-ui/v1.19.0` (upstream tag
+`v1.19.0` plus the UI commits), in a native `node:18-slim` stage of
+[`Dockerfile`](Dockerfile). The stage:
+
+1. downloads the tarball for the pinned commit SHA,
+2. verifies the pinned SHA-256,
+3. asserts that the fork's `server/package.json` version equals
+   `ANYTHINGLLM_VERSION`,
+4. runs `yarn install --frozen-lockfile --production=false` and builds with
+   `NODE_ENV=production`,
+5. copies only `frontend/dist` over `/app/server/public` of the upstream
+   image.
+
+Server, collector, Prisma engines, Chromium and the entrypoint stay upstream.
+The overlay runs before `apply.js`, so the server patches always see the
+upstream server files. The frontend build is pure JS and is not part of the
+ARMv8.0 binary scan.
+
+UI changes carried in the fork as of 1.19.0-ha3:
+
+| Commit theme | What it changes |
+|---|---|
+| Thread list (R1–R4) | New `ThreadList` component: configurable limit with "Show older threads", newest-first order (by activity), no connector lines, New Thread at the top |
+| Workspace collapse (R6a) | Chevron toggles the active workspace's list without navigating; `localStorage` per slug; the name click navigates and opens |
+| Line breaks (R7A) | A second markdown-it instance with `breaks: true` for user messages only |
+| Message actions (R8A) | Actions are always visible at `opacity-60`, fully opaque on hover/focus |
+| Wake lock (R9A) | Opt-in Screen Wake Lock while a response streams, off by default, secure-context only |
+| Activity sort (R5 client) | `THREAD_ACTIVITY_EVENT` from both composer paths; local reorder plus the server bump from patch #8 |
+| CSS #7/#8 | Mobile markdown-table scrolling and responsive workspace settings moved from the patch layer into `frontend/src/index.css` |
+
+The UI fork is rebased per upstream tag (never merged). See
+[`AGENTS.md`](../AGENTS.md) decision 12 and `DOCS.md` for the user-visible
+differences.
 
 ## Anchor map
 
@@ -43,8 +82,9 @@ Most edits use `replaceOnce(content, needle, replacement, label)`:
   `DEPLOYMENT_VERSION` before any file is touched;
 - the labels below are the third argument passed to `replaceOnce`.
 
-The new helper (#1) is a whole-file copy; the two CSS patches (#7/#8) are
-guarded appends. All three are called out separately below.
+The new helper (#1) is a whole-file copy; everything else uses
+`replaceOnce`. The CSP (#7) is a middleware insertion and the thread-activity
+patch (#8) is a post-create `update`; both are called out separately below.
 
 ### 1. New helper file
 
@@ -185,85 +225,44 @@ guarded appends. All three are called out separately below.
   - Replacement inserts `if (this.#supportsVision) return messages;`
     before `let hasAttachments`.
 
-### 7. `server/public/index.css` (mobile markdown tables)
+### 7. `server/index.js` (Content-Security-Policy)
 
-- No `replaceOnce` anchor. `apply.js` verifies that `.markdown table`
-  exists in the built stylesheet, then appends
-  [`snippets/markdown-table-scroll.css`](patches/snippets/markdown-table-scroll.css)
-  once. The `anythingllm-ha: markdown-table-scroll` marker keeps the CSS
-  append itself idempotent.
-- If `.markdown table` is missing, the build fails with
-  `[deepseek-patch] ERROR: could not find the .markdown table rule in
-  server/public/index.css`.
-- The override is appended at the end of the stylesheet, so it wins over
-  the upstream `.markdown table { overflow: hidden; }` rule:
+- Label `server CSP header`
+  - Anchor: `  const IndexPage = new MetaGenerator();` (plus its newline).
+  - Replacement appends
+    [`snippets/security-headers.js`](patches/snippets/security-headers.js),
+    an Express middleware that sets the `Content-Security-Policy` header on
+    every production HTML response before `express.static` and the SPA
+    catch-all.
+- The policy is:
+  `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src
+  'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:;
+  connect-src 'self' ws: wss:; media-src 'self' data: blob:; worker-src
+  'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`.
+- `style-src 'unsafe-inline'` is required by the app's inline style
+  attributes. `'wasm-unsafe-eval'` is required by the browser-side piper TTS
+  worker. `data:`/`blob:` cover image attachments and generated media, and
+  `ws:`/`wss:` cover the agent WebSocket. The policy deliberately does not
+  allow `'unsafe-eval'`; no frontend code uses `eval`/`new Function`.
+- The middleware is inside the existing `NODE_ENV !== "development"` block,
+  so it only applies to the production image.
 
-  ```css
-  /* anythingllm-ha: markdown-table-scroll
-   * Keep in sync with anythingllm/PATCHES.md.
-   * Upstream clips wide markdown tables with `.markdown table { overflow: hidden; }`
-   * and has no scroll wrapper. On narrow screens, make the table itself a
-   * horizontal scroll container so all columns stay reachable.
-   */
-  @media (max-width: 600px) {
-    .markdown table {
-      display: block;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      max-width: 100%;
-    }
-  }
-  ```
+### 8. `workspaceChats.js` (thread activity)
 
-- This is a display-only workaround. It does not change model output, the
-  API, or tables on wider screens; it only makes the table swipeable on
-  phones.
-
-### 8. `server/public/index.css` (workspace settings on narrow screens)
-
-- No `replaceOnce` anchor. `apply.js` verifies that `.w-1\/2` and `.px-16`
-  exist in the built stylesheet, then appends
-  [`snippets/workspace-settings-responsive.css`](patches/snippets/workspace-settings-responsive.css)
-  once. The `anythingllm-ha: workspace-settings-responsive` marker keeps
-  the CSS append itself idempotent.
-- If either class is missing, the build fails with
-  `[deepseek-patch] ERROR: could not find the .w-1/2 rule ...` or
-  `could not find the .px-16 rule ...`.
-- Upstream builds every workspace-settings form with `w-1/2` and wraps the
-  page content in `px-16 py-6`. On a narrow window the form is only half of
-  an already narrow content column, so the labels and descriptions wrap
-  every few words. The override uses the full content width below the xl
-  breakpoint and reduces the page padding on phones:
-
-  ```css
-  /* anythingllm-ha: workspace-settings-responsive
-   * Keep in sync with anythingllm/PATCHES.md.
-   * Upstream pins every workspace-settings form to `w-1/2` and pads the page
-   * with a fixed `px-16` (64 px per side). On a narrow window that leaves only
-   * a fraction of an already narrow column, so labels wrap word by word.
-   * Below the xl breakpoint (1280 px) the form uses the full content width;
-   * on phones the page padding shrinks to 16 px as well. Only the workspace
-   * settings page uses `form.w-1/2` and `div.px-16.py-6`, so this is scoped.
-   */
-  @media (max-width: 1279px) {
-    form.w-1\/2 {
-      width: 100%;
-    }
-  }
-
-  @media (max-width: 767px) {
-    div.px-16.py-6 {
-      padding-left: 1rem;
-      padding-right: 1rem;
-    }
-  }
-  ```
-
-- This is also display-only. It does not change the form fields, the save
-  behaviour or the API, and it leaves the desktop layout (>= 1280 px) at
-  the upstream 50 % width. The selectors are safe because only the
-  workspace-settings pages use `form.w-1/2` and `div.px-16.py-6` in
-  1.19.0.
+- Label `workspaceChats thread activity bump`
+  - Anchor: the `api_session_id: apiSessionId, include, }, });` block in
+    `WorkspaceChats.new`, immediately before `return { chat, message: null };`.
+  - Replacement inserts
+    [`snippets/thread-activity.js`](patches/snippets/thread-activity.js)
+    after the `create` and before the return.
+- The snippet updates `workspace_threads.lastUpdatedAt` for the new chat's
+  `threadId`. The column is `@default(now())`, not `@updatedAt`, so Prisma
+  does not maintain it. The update is best-effort (`.catch(...)`): if the
+  thread disappeared concurrently, the already-created chat is still
+  returned instead of failing.
+- The client sorts by `lastUpdatedAt ?? createdAt` and emits
+  `THREAD_ACTIVITY_EVENT` immediately after sending; this patch is the
+  cross-device source of truth for the next fetch.
 
 ## Vision behaviour
 
@@ -283,8 +282,12 @@ guarded appends. All three are called out separately below.
 The image is built in this order:
 
 ```dockerfile
+FROM --platform=$BUILDPLATFORM node:18-slim AS ui
+# download UI_FORK_SHA (+ SHA-256), version assertion, yarn build
+...
 FROM mintplexlabs/anythingllm:${ANYTHINGLLM_VERSION}
 ...
+COPY --from=ui /src/frontend/dist /app/server/public
 COPY patches /opt/anythingllm-patches
 RUN node /opt/anythingllm-patches/apply.js \
  && rm -rf /opt/anythingllm-patches
@@ -292,43 +295,58 @@ RUN node /opt/anythingllm-patches/apply.js \
 
 Consequences:
 
+- The UI overlay replaces only `server/public`. The patch layer then runs on
+  the unchanged upstream server files. UI changes must go into the fork, not
+  into a new `replaceOnce` anchor; server changes must go into `apply.js`, not
+  into the fork's server tree.
 - A new upstream release replaces the target files with the new upstream
   versions; the patch layer runs again on top of them. The patches are
   not silently overwritten by the release.
 - If an anchor moved, `apply.js` fails the image build before the image
   is published. That is intentional: no patch silently stops applying.
-- The new helper (#1) and the CSS appends (#7/#8) do not use `replaceOnce`:
-  #1 is a whole-file copy (watch for a path collision on bump); #7 checks
-  for the `.markdown table` rule, #8 for `.w-1\/2` + `.px-16`, and both
-  append once via their markers.
+- The new helper (#1) is a whole-file copy (watch for a path collision on
+  bump). Everything else uses `replaceOnce`.
 - If upstream already implements one of the patched features, the patch
   becomes redundant or conflicts with the new implementation. Remove it
   and its options instead of forcing the old anchor.
 
 ## Upstream bump checklist
 
-1. Bump `ANYTHINGLLM_VERSION` in `anythingllm/Dockerfile` and `version:`
+1. Rebase the UI fork branch on the new upstream tag (never merge):
+   `git switch -c ha-ui/vX.Y.Z vX.Y.Z`, then
+   `git rebase --onto vX.Y.Z <old-tag> ha-ui/vX.Y.Z`; check
+   `yarn.lock` drift and run `git range-diff`.
+2. Bump `ANYTHINGLLM_VERSION` in `anythingllm/Dockerfile` and `version:`
    in `anythingllm/config.yaml` (bump `-haN` for add-on-only changes; CI
    validates that the base versions match).
-2. Update `EXPECTED_VERSION` in `patches/apply.js`.
-3. Re-check every anchor and snippet against the new upstream files:
+3. Pin the new fork commit in `UI_FORK_SHA` and its codeload tarball
+   SHA-256 in `UI_FORK_SHA256` (download the tarball and run `sha256sum`).
+   The build's version assertion must still match `ANYTHINGLLM_VERSION`.
+4. Update `EXPECTED_VERSION` in `patches/apply.js`.
+5. Re-check every anchor and snippet against the new upstream files:
    - `server/utils/agents/aibitat/plugins/web-browsing.js`
    - `server/models/systemSettings.js`
    - `server/utils/collectorApi/index.js`
    - `server/utils/AiProviders/deepseek/index.js`
    - `server/utils/agents/aibitat/providers/deepseek.js`
-   - `server/public/index.css`
-4. Check whether upstream now supports DeepSeek Search/Fetch, DeepSeek
-   vision, scrollable markdown tables or a responsive workspace-settings
-   layout; remove the corresponding patch(es) and options instead of
-   carrying a redundant patch.
-5. Re-verify the add-on integration points: the three storage symlinks
+   - `server/index.js`
+   - `server/models/workspaceChats.js`
+6. Check whether upstream now supports DeepSeek Search/Fetch, DeepSeek
+   vision, a suitable CSP or thread-activity timestamps; remove the
+   corresponding patch(es) and options instead of carrying a redundant
+   patch.
+7. Re-verify the add-on integration points: the three storage symlinks
    (`/app/server/storage`, `/app/server/.env`, `/collector/hotdir`), the
-   entrypoint contract, and ARMv8.0 if native binaries changed.
-6. Update `CHANGELOG.md`, `DOCS.md`, `README.md` and this file; build the
+   entrypoint contract, and ARMv8.0 if native binaries changed. The UI
+   overlay is pure JS and does not change the binary scan.
+8. Update `CHANGELOG.md`, `DOCS.md`, `README.md` and this file; build the
    amd64 image, run the add-on linter, and smoke-test the relevant path.
-7. Commit and push; CI builds the aarch64/amd64 images for the new
-   version.
+9. UI smoke on desktop + phone, light + dark: login, sidebar, thread
+   limit/show-older, workspace collapse, line breaks in a user message,
+   visible message actions, wake-lock preference, and thread activity
+   ordering after reload.
+10. Commit and push; CI builds the aarch64/amd64 images for the new
+    version.
 
 ## Removing the patches
 
@@ -350,23 +368,32 @@ Consequences:
 - Remove step 5 from `apply.js` and delete:
   - `patches/snippets/deepseek-chat-images.js`
   - `patches/snippets/deepseek-agent-images.js`
-- Keep the Search/Fetch, table-scroll and responsive-settings patches if
-  they are still needed.
+- Keep the Search/Fetch, CSP and thread-activity patches if they are still
+  needed.
 - Update `DOCS.md` and `README.md` to describe the upstream behaviour.
 
-### When upstream makes markdown tables scrollable
+### When upstream ships a suitable CSP
 
 - Remove step 6 from `apply.js` and delete
-  `patches/snippets/markdown-table-scroll.css`.
-- Remove the mobile-table notes from `DOCS.md` and `README.md`.
-- Remove the patch row and anchor section from this file.
+  `patches/snippets/security-headers.js`; drop `server/index.js` from the
+  anchor map.
+- Compare the upstream policy with ours before removing it: the JWT stays in
+  localStorage, so a missing `script-src` is still a real gap even if a
+  header exists.
 
-### When upstream makes workspace settings responsive
+### When upstream bumps thread activity itself
 
 - Remove step 7 from `apply.js` and delete
-  `patches/snippets/workspace-settings-responsive.css`.
-- Remove the narrow-screen notes from `DOCS.md` and `README.md`.
-- Remove the patch row and anchor section from this file.
+  `patches/snippets/thread-activity.js`; drop `workspaceChats.js` from the
+  anchor map.
+- Keep the client-side `THREAD_ACTIVITY_EVENT` only if it still improves the
+  immediate reorder; the server value is the source of truth.
+
+### When upstream fixes the migrated CSS
+
+- The mobile markdown-table and responsive workspace-settings rules now live
+  in the UI fork (`frontend/src/index.css`). Remove them there when upstream
+  fixes the layouts, and drop the corresponding DOCS.md notes.
 
 ## Verification after changing this layer
 
@@ -375,13 +402,16 @@ node --check anythingllm/patches/apply.js
 cd anythingllm
 docker build -t anythingllm-ha:test .
 docker run --rm --entrypoint sh anythingllm-ha:test -c '
-  grep -n "markdown-table-scroll" /app/server/public/index.css
-  grep -n "workspace-settings-responsive" /app/server/public/index.css
+  grep -n "Content-Security-Policy" /app/server/index.js
+  grep -n "lastUpdatedAt: new Date()" /app/server/models/workspaceChats.js
   grep -R "supportsVision" /app/server/utils/AiProviders/deepseek \
     /app/server/utils/agents/aibitat/providers/deepseek.js
+  grep -n "form.w-1" /app/server/public/index.css
 '
 ```
 
 The build log must include `[deepseek-patch] done` and list every patched
-file. For a full prompt-level check, see the 1.18.0-ha4, 1.18.0-ha5 and
-1.19.0-ha2 changelog entries.
+file. The build also verifies the fork tarball SHA-256 and the fork/base
+version assertion; a wrong `UI_FORK_SHA`/`UI_FORK_SHA256` fails before the
+final image is assembled. For a full prompt-level check, see the 1.18.0-ha4,
+1.18.0-ha5 and 1.19.0-ha3 changelog entries.

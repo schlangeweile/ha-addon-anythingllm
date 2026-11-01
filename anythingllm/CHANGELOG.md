@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.19.0-ha3
+
+- UI variant C: the frontend is now built from the public UI fork
+  [`schlangeweile/anything-llm`](https://github.com/schlangeweile/anything-llm)
+  (branch `ha-ui/v1.19.0`, upstream `v1.19.0` + UI commits) in a native
+  `node:18-slim` stage and copied over `/app/server/public`; server,
+  collector, Prisma engines and the entrypoint stay upstream. The fork
+  commit and its tarball SHA-256 are pinned and the build asserts the fork
+  version against `ANYTHINGLLM_VERSION`. No new options.
+- Thread list: a configurable limit (UI Preferences → Thread list, off by
+  default; 8 when enabled) folds older threads behind **Show N older
+  threads** / **Show less**; the newest threads are first, New Thread is at
+  the top, the old connector lines are replaced by one subtle list border,
+  and the active thread is always visible.
+- Workspaces can be collapsed with a chevron on the active workspace row
+  (state per slug in `localStorage`); the workspace name still navigates and
+  opens the list.
+- User messages preserve line breaks; assistant messages keep the upstream
+  rendering.
+- Message actions (copy, edit/resend, regenerate, feedback, kebab) are
+  always visible at 60 % opacity and fully opaque on hover/focus, so edit
+  and resend are reachable on touch tablets.
+- Optional Screen Wake Lock while a reply streams (UI Preferences → Keep the
+  screen awake, off by default, only in a secure context/HTTPS). It never
+  affects correctness; unsupported or rejected requests are a no-op.
+- Threads are sorted by activity: `WorkspaceChats.new` bumps the thread's
+  `lastUpdatedAt` (best-effort) and the UI reorders immediately after
+  sending; the order survives reloads and is shared across devices.
+- The mobile markdown-table scroll and responsive workspace-settings CSS
+  moved from the build-time patch layer into the UI fork.
+- Content-Security-Policy on production HTML responses (same-origin
+  scripts, inline styles for the app, `data:`/`blob:` media and images,
+  same-origin WebSockets, `'wasm-unsafe-eval'` for the browser TTS worker;
+  no `'unsafe-eval'`). This closes the JWT-in-localStorage XSS gap.
+- Verified on amd64: reference overlay build at v1.19.0 and final image
+  with the pinned fork commit; UI smoke on desktop + phone, light + dark
+  (thread limit/show-older, collapse, line breaks, actions, wake lock,
+  activity sort after reload, table/settings CSS), no console or CSP
+  errors. The on-device (Odroid N2+) test remains.
+
 ## 1.19.0-ha2
 
 - Narrow-screen workspace settings: upstream 1.19.0 pins every settings
