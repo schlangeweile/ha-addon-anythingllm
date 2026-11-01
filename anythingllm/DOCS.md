@@ -240,6 +240,34 @@ width, not by a fixed character count.
 Menu entries use the same 14 px type scale as the rest of the UI. Main
 entries are semibold so they stay distinguishable from their sub-entries.
 
+### Chat metrics
+
+The small metrics line under an assistant answer shows the model, duration,
+tokens/s, date and the token usage (`total tok (prompt · completion)`). It is
+hidden until hovered by default; **UI Preferences → Chat metrics** pins it
+permanently, and clicking the line in a chat toggles the same preference. On
+mobile the line is shown when the preference is on. Token values depend on
+the provider: exact usage is used when the provider reports it, otherwise the
+prompt is estimated with the model tokenizer and the completion is counted
+per streamed chunk.
+
+### Chat context label
+
+The top-left chat label shows `model · workspace`, both on desktop (inside
+the existing model picker) and on mobile (in a slim bar below the fixed app
+header). The workspace is the one a new message/thread would be created in.
+On desktop the label stays the admin-only picker; on mobile it is display
+only.
+
+### Favicon and PWA icons
+
+The default AnythingLLM favicon and PWA icons are replaced by the Stanley
+tuxedo mark on a white background: multi-size `favicon.ico`, 512 px
+`favicon.png`, 180 px `apple-touch-icon.png`, 192/512 px PWA icons and a
+512 px maskable icon. The web manifest declares the `any` and `maskable`
+purposes. Hard-refresh the browser after an update; an already installed PWA
+must be removed and re-added to pick up the new icon.
+
 ### Line breaks in your own messages
 
 Newlines and pasted console output in user messages are preserved (one line

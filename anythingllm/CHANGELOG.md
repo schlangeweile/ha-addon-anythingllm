@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.19.0-ha6
+
+- Chat metrics: the per-message metrics line now also shows the token usage
+  (`96 tok (92 prompt · 4 completion)`) beside model, duration, tok/s and
+  date, and it renders even when no tok/s is reported. A new UI preference
+  ("Chat metrics", off by default) pins the line without hovering; the
+  existing click-to-pin syncs the same preference. On mobile the line is
+  available when the preference is on. Token values are only as exact as
+  the provider's usage reporting; otherwise they are tokenizer estimates.
+- Chat context label: the desktop model label in the top-left of the chat
+  pane now reads `model · workspace`. Mobile shows the same label at the
+  same relative place below the fixed app header, so both the effective
+  model and the workspace that would receive a new thread are visible.
+- Branding assets: the Stanley tuxedo mark replaces the default favicon and
+  PWA icons (multi-size `.ico`, 512 favicon, 180 apple-touch, 192/512 PWA
+  and a maskable 512 icon). The manifest declares `any`/`maskable` purposes;
+  this is static frontend assets only.
+- No storage migration, API shape or add-on option changes.
+
 ## 1.19.0-ha5
 
 - Sidebar: upstream's virtual `*New Thread` row is no longer rendered. It

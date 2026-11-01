@@ -1,4 +1,4 @@
-# Add-on patches (AnythingLLM 1.19.0-ha5)
+# Add-on patches (AnythingLLM 1.19.0-ha6)
 
 This add-on is a thin layer on the pinned upstream image
 `mintplexlabs/anythingllm:1.19.0`, plus the build-time patch layer in
@@ -56,7 +56,7 @@ The overlay runs before `apply.js`, so the server patches always see the
 upstream server files. The frontend build is pure JS and is not part of the
 ARMv8.0 binary scan.
 
-UI changes carried in the fork as of 1.19.0-ha5:
+UI changes carried in the fork as of 1.19.0-ha6:
 
 | Commit theme | What it changes |
 |---|---|
@@ -65,6 +65,9 @@ UI changes carried in the fork as of 1.19.0-ha5:
 | Search dismissal (ha5) | Results close on Escape, outside click and navigation; always-visible clear button; reopen on focus/click |
 | Width truncation (ha5) | Full-width search result rows and flexible workspace names; auto thread names up to 64 chars (patch #9) instead of 22 |
 | Settings type (ha5) | Sub-items 14 px instead of 12 px; main entries semibold at 14 px |
+| Chat metrics (ha6) | Token usage in the per-message metrics line; UI preference to pin the line, also on mobile |
+| Chat context label (ha6) | Desktop picker and mobile bar show `model · workspace` |
+| Favicon/PWA icons (ha6) | Stanley mark as favicon, apple-touch and PWA icons (incl. maskable) with manifest declarations |
 | Workspace collapse (R6a) | Chevron toggles the active workspace's list without navigating; clicking the open workspace's name toggles too, other names navigate and open; `localStorage` per slug |
 | Line breaks (R7A) | A second markdown-it instance with `breaks: true` for user messages only |
 | Message actions (R8A) | Actions are always visible at `opacity-60`, fully opaque on hover/focus |
