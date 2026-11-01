@@ -3,15 +3,17 @@
 
 /**
  * Fail-fast server patch layer: DeepSeek Search/Fetch, native image support,
- * a Content-Security-Policy and thread-activity bookkeeping.
+ * a Content-Security-Policy, thread-activity bookkeeping and longer
+ * auto-generated thread names.
  *
  * The add-on is normally a thin image on top of the official AnythingLLM
- * image. This patch deliberately changes the upstream server code for four
+ * image. This patch deliberately changes the upstream server code for five
  * reasons: upstream 1.19.0 has no DeepSeek web-search provider, its native
  * DeepSeek provider hard-codes the model as text-only even though
  * deepseek-flash accepts images, the SPA has no CSP despite storing its JWT
- * in localStorage, and Prisma never bumps a thread's lastUpdatedAt when a
- * chat is saved. The changes are:
+ * in localStorage, Prisma never bumps a thread's lastUpdatedAt when a chat
+ * is saved, and auto-generated thread names are cut to 22 characters so the
+ * UI can never use the available width. The changes are:
  *
  *   1. server/utils/agents/aibitat/plugins/helpers/deepseek.js (new helper)
  *   2. server/utils/agents/aibitat/plugins/web-browsing.js (provider)
@@ -23,6 +25,9 @@
  *   6. server/index.js (Content-Security-Policy for the production SPA)
  *   7. server/models/workspaceChats.js (bump a thread's lastUpdatedAt when a
  *      chat is saved, so the sidebar can sort by activity)
+ *   8. server/models/workspaceThread.js and server/endpoints/workspaces.js
+ *      (store up to 64 characters of an auto-generated thread name and let
+ *      the UI truncate by rendered width)
  *
  * Frontend changes, including the two former CSS snippets, live in the UI
  * fork (public branch ha-ui/v1.19.0) and are copied in as a built overlay.
@@ -291,5 +296,27 @@ workspaceChats = replaceOnce(
   "workspaceChats thread activity bump"
 );
 writeApp("server/models/workspaceChats.js", workspaceChats);
+
+// 8. Store longer auto-generated thread names. Upstream cuts the first prompt
+//    (and a forked thread's last answer) to 22 characters at creation time, so
+//    the sidebar and search can never show more even when the row has room.
+//    Store up to 64 characters; every surface already truncates by CSS width.
+let workspaceThread = readApp("server/models/workspaceThread.js");
+workspaceThread = replaceOnce(
+  workspaceThread,
+  "      name: truncate(prompt, 22),",
+  "      name: truncate(prompt, 64),",
+  "workspaceThread auto-name length"
+);
+writeApp("server/models/workspaceThread.js", workspaceThread);
+
+let workspacesEndpoint = readApp("server/endpoints/workspaces.js");
+workspacesEndpoint = replaceOnce(
+  workspacesEndpoint,
+  "            ? truncate(lastMessageText, 22)",
+  "            ? truncate(lastMessageText, 64)",
+  "forked thread auto-name length"
+);
+writeApp("server/endpoints/workspaces.js", workspacesEndpoint);
 
 console.log("[deepseek-patch] done");

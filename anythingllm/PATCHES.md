@@ -28,11 +28,12 @@ fork.
 | 6 | [`snippets/deepseek-agent-images.js`](patches/snippets/deepseek-agent-images.js) | `server/utils/agents/aibitat/providers/deepseek.js` | Image attachments in agent mode plus `#stripAttachments` guard | none | Same as #5 |
 | 7 | [`snippets/security-headers.js`](patches/snippets/security-headers.js) | `server/index.js` | Content-Security-Policy for the production SPA | none | Upstream ships a suitable CSP |
 | 8 | [`snippets/thread-activity.js`](patches/snippets/thread-activity.js) | `server/models/workspaceChats.js` | Bump the thread's `lastUpdatedAt` when a chat is saved | none | Upstream bumps thread activity itself |
+| 9 | Inline anchors in `apply.js` | `server/models/workspaceThread.js`, `server/endpoints/workspaces.js` | Store auto-generated thread names up to 64 characters instead of 22, so the UI truncates by width | none | Upstream stores longer names |
 
 The image patch (#5/#6) is always applied; it only affects the native
-DeepSeek provider. The CSP (#7) and thread-activity (#8) patches are also
-always applied. Only the Search/Fetch behaviour is controlled by the two
-add-on options.
+DeepSeek provider. The CSP (#7), thread-activity (#8) and thread-name (#9)
+patches are also always applied. Only the Search/Fetch behaviour is controlled
+by the two add-on options.
 
 ### UI fork overlay
 
