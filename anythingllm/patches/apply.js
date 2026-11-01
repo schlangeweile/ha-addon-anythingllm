@@ -23,6 +23,7 @@
  *   6. server/public/index.css (mobile markdown-table horizontal scroll)
  *   7. server/public/index.css (responsive workspace-settings form width and
  *      page padding on narrow screens)
+ *   8. server/index.js (Content-Security-Policy for the production SPA)
  *
  * The script asserts the pinned upstream version and fails the image build if
  * an anchor is no longer present. That is intentional: on every upstream
@@ -250,6 +251,20 @@ deepseekAgent = replaceOnce(
   "deepseek agent stripAttachments guard"
 );
 writeApp("server/utils/agents/aibitat/providers/deepseek.js", deepseekAgent);
+
+// 8. Enforce a Content-Security-Policy on the production SPA. The JWT is kept
+//    in localStorage, so without a CSP a single successful XSS can read and
+//    exfiltrate it. Add the header before express.static and the SPA
+//    catch-all, which are the only production routes that serve HTML.
+let serverIndex = readApp("server/index.js");
+serverIndex = replaceOnce(
+  serverIndex,
+  "  const IndexPage = new MetaGenerator();\n",
+  "  const IndexPage = new MetaGenerator();\n\n" +
+    readSnippet("security-headers.js"),
+  "server CSP header"
+);
+writeApp("server/index.js", serverIndex);
 
 // 6. Make wide markdown tables horizontally scrollable on narrow screens.
 //    Upstream clips them with `.markdown table { overflow: hidden; }` and has
