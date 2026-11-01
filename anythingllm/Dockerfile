@@ -2,13 +2,49 @@
 #
 # Deliberately THIN: the upstream image is multi-arch (linux/amd64 +
 # linux/arm64) and already runs the app (server + collector) through its
-# own docker-entrypoint. This layer only pins the version and adapts
-# user/storage for Home Assistant - do not add app logic here.
+# own docker-entrypoint. Our layer only pins the version, adapts
+# user/storage for Home Assistant and overlays a frontend built from the
+# public UI fork. Server, collector, Prisma engines and the Chromium
+# runtime stay upstream - do not add app logic here.
 #
 # Pin only plain version tags. The pg-/railway-/render- prefixed tags are
 # deployment presets for external Postgres platforms (railway/render are
 # amd64-only) - never use them here.
 ARG ANYTHINGLLM_VERSION=1.19.0
+
+# Frontend overlay. The UI fork is the public branch ha-ui/v1.19.0 of
+# schlangeweile/anything-llm (upstream tag v1.19.0 + our UI commits). The
+# stage runs natively on the builder ($BUILDPLATFORM), so the frontend build
+# is plain JS and never runs under QEMU; it has no ARMv8.0 implications.
+# Pin the commit SHA, not a branch: the tarball URL is then immutable. The
+# SHA-256 makes the downloaded tarball reproducible, and the version check
+# fails the build when the fork is based on a different upstream release.
+# Keep NODE_ENV=production: a dev-mode React bundle is ~468 KB larger.
+ARG UI_FORK_SHA=14201e42efeddb3e4c5eb951a028e5fcac4dcbb1
+ARG UI_FORK_SHA256=abb6d242d5f3ea5f9e7de6144a5bc92b4c6865057050dadeaf8ec8eecf992226
+
+FROM --platform=$BUILDPLATFORM node:18-slim AS ui
+ARG UI_FORK_SHA
+ARG UI_FORK_SHA256
+ARG ANYTHINGLLM_VERSION
+ENV NODE_ENV=production
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && curl -fsSL -o /tmp/src.tgz "https://codeload.github.com/schlangeweile/anything-llm/tar.gz/${UI_FORK_SHA}" \
+ && echo "${UI_FORK_SHA256}  /tmp/src.tgz" | sha256sum -c - \
+ && mkdir -p /src \
+ && tar -xzf /tmp/src.tgz -C /src --strip-components=1 \
+ && rm -f /tmp/src.tgz
+RUN ver=$(node -p "require('/src/server/package.json').version") \
+ && [ "$ver" = "${ANYTHINGLLM_VERSION}" ] \
+ || { echo "UI fork is $ver, base image is ${ANYTHINGLLM_VERSION}"; exit 1; }
+WORKDIR /src/frontend
+# NODE_ENV=production is the bundle contract (no React dev build). Yarn 1
+# otherwise omits devDependencies, which includes vite itself; --production=false
+# installs the build toolchain while the build below still sees production.
+RUN yarn install --frozen-lockfile --production=false --network-timeout 600000 \
+ && yarn build
+
 FROM mintplexlabs/anythingllm:${ANYTHINGLLM_VERSION}
 
 # Home Assistant mounts /data root-owned and does not override the image
@@ -38,23 +74,29 @@ RUN rm -rf /app/server/storage \
  && mkdir -p /collector \
  && ln -s /app/collector/hotdir /collector/hotdir
 
+# Overlay the frontend built from the UI fork. Docker copies the CONTENTS of
+# dist into the existing public directory, so index.js/index.css and hashed
+# assets replace their upstream counterparts; server, collector and entrypoint
+# are untouched. The old upstream assets remain in the base layer (accepted,
+# ~16 MB; the plan measured ~8.6 MB additional registry layer). The overlay
+# runs before apply.js so the server patches always see the upstream server
+# files; the CSS snippets now live in the fork and no longer touch public/.
+COPY --from=ui /src/frontend/dist /app/server/public
+
 # Experimental local patch (not upstream): DeepSeek Search/Fetch support,
-# image attachments for the native DeepSeek provider, a mobile markdown-table
-# CSS override, and a responsive workspace-settings layout fix. Upstream
-# 1.19.0 has no DeepSeek web-search provider, so this layer adds one plus an
-# optional DeepSeek Fetch path for the agent's scrape skill. Both are off by
-# default and controlled by the add-on options deepseek_search /
-# deepseek_fetch. Upstream also hard-codes DeepSeek as text-only and drops
-# chat images even though deepseek-flash accepts them; the patch forwards
-# images for that model (and still strips them for text-only models such as
-# deepseek-v4-pro). Upstream clips wide markdown tables on narrow screens;
-# one CSS override makes the table horizontally scrollable below 600 px. It
-# also pins workspace-settings forms to half width with 64 px page padding,
-# so the second CSS override uses the full content width below the xl
-# breakpoint and 16 px padding on phones. The patch script fails the build if
-# the pinned upstream version or an anchor changes - re-check patches/ on
-# every upstream bump. Remove the Search/Fetch part once upstream supports
-# DeepSeek Search natively.
+# image attachments for the native DeepSeek provider, a Content-Security-
+# Policy for the SPA, and a thread-activity timestamp update. Upstream 1.19.0
+# has no DeepSeek web-search provider, so this layer adds one plus an optional
+# DeepSeek Fetch path for the agent's scrape skill. Both are off by default and
+# controlled by the add-on options deepseek_search / deepseek_fetch. Upstream
+# also hard-codes DeepSeek as text-only and drops chat images even though
+# deepseek-flash accepts them; the patch forwards images for that model (and
+# still strips them for text-only models such as deepseek-v4-pro). The CSP
+# closes the JWT-in-localStorage gap, and WorkspaceChats.new bumps a thread's
+# lastUpdatedAt so the sidebar can sort by activity. The patch script fails the
+# build if the pinned upstream version or an anchor changes - re-check
+# patches/ on every upstream bump. Remove the Search/Fetch part once upstream
+# supports DeepSeek Search natively.
 COPY patches /opt/anythingllm-patches
 RUN node /opt/anythingllm-patches/apply.js \
  && rm -rf /opt/anythingllm-patches
