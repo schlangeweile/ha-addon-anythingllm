@@ -2,15 +2,16 @@
 "use strict";
 
 /**
- * Fail-fast server patch layer: DeepSeek Search/Fetch, native image support
- * and a Content-Security-Policy.
+ * Fail-fast server patch layer: DeepSeek Search/Fetch, native image support,
+ * a Content-Security-Policy and thread-activity bookkeeping.
  *
  * The add-on is normally a thin image on top of the official AnythingLLM
- * image. This patch deliberately changes the upstream server code for three
+ * image. This patch deliberately changes the upstream server code for four
  * reasons: upstream 1.19.0 has no DeepSeek web-search provider, its native
  * DeepSeek provider hard-codes the model as text-only even though
- * deepseek-flash accepts images, and the SPA has no CSP despite storing its
- * JWT in localStorage. The changes are:
+ * deepseek-flash accepts images, the SPA has no CSP despite storing its JWT
+ * in localStorage, and Prisma never bumps a thread's lastUpdatedAt when a
+ * chat is saved. The changes are:
  *
  *   1. server/utils/agents/aibitat/plugins/helpers/deepseek.js (new helper)
  *   2. server/utils/agents/aibitat/plugins/web-browsing.js (provider)
@@ -20,6 +21,8 @@
  *      server/utils/agents/aibitat/providers/deepseek.js (image attachments
  *      for vision-capable DeepSeek models)
  *   6. server/index.js (Content-Security-Policy for the production SPA)
+ *   7. server/models/workspaceChats.js (bump a thread's lastUpdatedAt when a
+ *      chat is saved, so the sidebar can sort by activity)
  *
  * Frontend changes, including the two former CSS snippets, live in the UI
  * fork (public branch ha-ui/v1.19.0) and are copied in as a built overlay.
@@ -264,5 +267,29 @@ serverIndex = replaceOnce(
   "server CSP header"
 );
 writeApp("server/index.js", serverIndex);
+
+// 7. Bump the thread's lastUpdatedAt whenever a chat is saved. The UI sorts
+//    threads by lastUpdatedAt (falling back to createdAt); Prisma does not
+//    maintain that column automatically because it is @default(now()), not
+//    @updatedAt. The update is best-effort so a deleted thread cannot fail a
+//    chat that was already created.
+let workspaceChats = readApp("server/models/workspaceChats.js");
+workspaceChats = replaceOnce(
+  workspaceChats,
+  `          api_session_id: apiSessionId,
+          include,
+        },
+      });
+      return { chat, message: null };`,
+  `          api_session_id: apiSessionId,
+          include,
+        },
+      });
+` +
+    readSnippet("thread-activity.js") +
+    `      return { chat, message: null };`,
+  "workspaceChats thread activity bump"
+);
+writeApp("server/models/workspaceChats.js", workspaceChats);
 
 console.log("[deepseek-patch] done");
