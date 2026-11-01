@@ -20,8 +20,8 @@ ARG ANYTHINGLLM_VERSION=1.19.0
 # SHA-256 makes the downloaded tarball reproducible, and the version check
 # fails the build when the fork is based on a different upstream release.
 # Keep NODE_ENV=production: a dev-mode React bundle is ~468 KB larger.
-ARG UI_FORK_SHA=ef7b4302e9841afa715f9bd279ffcceecafd19a4
-ARG UI_FORK_SHA256=b71438c43a0fec74214e21b213dab77c8af409dd1ad299198d4663504a2ef847
+ARG UI_FORK_SHA=14f83184b73fa22f6ec59a2c8cf991c0e67066f2
+ARG UI_FORK_SHA256=c63a7623e8841aae65d97bbb15dde0ddb1c32b4e0e003a567318ef62c0e8db05
 
 FROM --platform=$BUILDPLATFORM node:18-slim AS ui
 ARG UI_FORK_SHA

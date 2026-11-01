@@ -213,13 +213,32 @@ except the activity ordering, which the server also persists.
 - Threads are ordered by **activity**, not creation: sending a message moves
   the thread to the top immediately, and after a reload (or on a second
   device) the server-side `lastUpdatedAt` bump keeps it there.
+- Auto-generated thread names are stored up to **64 characters**; the list
+  and the search truncate them by rendered width. Threads created before
+  this change keep their 22-character names.
 
 ### Collapsing a workspace
 
-The active workspace row has a chevron. It collapses or expands the thread
-list **without navigating**; the workspace name still navigates and opens the
-list. The collapsed state is remembered per workspace slug in the browser.
-Only the active workspace ever shows a thread list, as before.
+The active workspace row has a chevron. Clicking its **workspace name**
+toggles the thread list too, without leaving the current thread. Clicking a
+different workspace name still navigates there and opens its list; on the
+home page and in workspace settings the name keeps navigating. The collapsed
+state is remembered per workspace slug in the browser. Only the active
+workspace ever shows a thread list, as before.
+
+### Sidebar search
+
+The search box matches workspace and thread **names** (at least 3
+characters; no chat contents or documents). Results close on Escape, on a
+click outside the search area or on navigation, and the clear button in the
+field empties it. Focusing or clicking the field shows the last results
+again. Result rows and workspace/thread labels truncate by the available
+width, not by a fixed character count.
+
+### Settings menu
+
+Menu entries use the same 14 px type scale as the rest of the UI. Main
+entries are semibold so they stay distinguishable from their sub-entries.
 
 ### Line breaks in your own messages
 

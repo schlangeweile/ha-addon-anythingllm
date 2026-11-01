@@ -1,16 +1,31 @@
 # Changelog
 
-## 1.19.0-ha4
+## 1.19.0-ha5
 
 - Sidebar: upstream's virtual `*New Thread` row is no longer rendered. It
   appeared on every bare workspace route - after deleting the active thread
   (which redirects to `/workspace/<slug>`) and right after creating a
-  workspace - below the real threads, was highlighted as active, and
-  vanished on the next thread click. It also linked to the home page instead
-  of the workspace. The New Thread button at the top (ha3, R3) is now the
-  single way to start a chat; named threads and the `default` row (when the
-  default thread has chats) are unchanged. UI fork commit `ef7b430`.
-- No server, storage, API or option changes.
+  workspace - was highlighted as active, and vanished on the next thread
+  click. It also linked to the home page instead of the workspace. The New
+  Thread button at the top is now the only way to start a chat; named
+  threads and the `default` row (when the default thread has chats) are
+  unchanged. UI fork commit `ef7b430` (prepared as ha4, never released).
+- Clicking the name of the already open workspace toggles its thread list
+  without leaving the current thread; other workspaces still navigate and
+  open. On the home page and in workspace settings the name keeps
+  navigating (`755b673`).
+- Sidebar search: results close on Escape, on a click outside the search
+  area and on navigation; an always-visible clear button empties the field;
+  focusing or clicking the field shows the last results again (`899fd9f`).
+- Truncation follows the available width: search-result rows no longer
+  reserve 20 % of their width, workspace names no longer use a fixed 130 px
+  box, and auto-generated thread names are stored up to 64 characters
+  instead of 22, so the UI can cut them by rendered width. Existing threads
+  keep their short names. UI fork commit `3718001`, server patch #9.
+- Settings menu: sub-items use the same 14 px as the rest of the UI
+  (previously 12 px); main entries are semibold at 14 px, mirroring the bold
+  workspace name against medium thread names (`5b8110b`, `14f8318`).
+- No storage migration, API shape or add-on option changes.
 
 ## 1.19.0-ha3
 
