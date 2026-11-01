@@ -25,10 +25,13 @@ workspace-settings layout on phones; see below.
 > chat, RAG with citations, multi-user isolation, persistence); 1.19.0-ha2
 > passed a boot/API/persistence smoke test, and 1.19.0-ha3 passed the UI
 > smoke (desktop + phone, light + dark) with the new frontend overlay.
+> 1.19.0-ha4 re-ran the sidebar smoke after removing the phantom
+> `*New Thread` row (14/14 checks, light + dark, delete flow, new
+> workspace, thread selection, New Thread button).
 > Measured RAM: ~290 MiB idle on amd64 (1.19.0-ha1). Final confirmation on
 > real Odroid N2+ hardware is still pending - see the add-on changelog for
 > details.
-> The add-on layer is at **1.19.0-ha3** (consistent cold backups, Open Web
+> The add-on layer is at **1.19.0-ha4** (consistent cold backups, Open Web
 > UI button, documentation fixes, an optional experimental DeepSeek
 > Search/Fetch patch, native DeepSeek image support for `deepseek-flash`,
 > a CSP, and a UI fork with the thread-list, collapse, line-break, action,
@@ -38,7 +41,7 @@ workspace-settings layout on phones; see below.
 | Architecture | Status |
 | ------------ | ------ |
 | aarch64 (ARMv8.0) | 1.18.0 statically + emulated verified; 1.19.0 re-scanned statically; on-device test pending |
-| amd64        | 1.18.0 full smoke test; 1.19.0-ha3 UI/API/persistence smoke test passed |
+| amd64        | 1.18.0 full smoke test; 1.19.0-ha3 UI/API/persistence smoke test passed; 1.19.0-ha4 UI smoke passed |
 
 ## Requirements
 

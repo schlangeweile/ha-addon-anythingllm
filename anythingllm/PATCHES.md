@@ -1,4 +1,4 @@
-# Add-on patches (AnythingLLM 1.19.0-ha3)
+# Add-on patches (AnythingLLM 1.19.0-ha4)
 
 This add-on is a thin layer on the pinned upstream image
 `mintplexlabs/anythingllm:1.19.0`, plus the build-time patch layer in
@@ -55,11 +55,12 @@ The overlay runs before `apply.js`, so the server patches always see the
 upstream server files. The frontend build is pure JS and is not part of the
 ARMv8.0 binary scan.
 
-UI changes carried in the fork as of 1.19.0-ha3:
+UI changes carried in the fork as of 1.19.0-ha4:
 
 | Commit theme | What it changes |
 |---|---|
 | Thread list (R1–R4) | New `ThreadList` component: configurable limit with "Show older threads", newest-first order (by activity), no connector lines, New Thread at the top |
+| Phantom row (ha4) | Upstream's virtual `*New Thread` row removed: it duplicated the New Thread button and appeared on every bare workspace route (after deleting the active thread, on a new workspace) |
 | Workspace collapse (R6a) | Chevron toggles the active workspace's list without navigating; `localStorage` per slug; the name click navigates and opens |
 | Line breaks (R7A) | A second markdown-it instance with `breaks: true` for user messages only |
 | Message actions (R8A) | Actions are always visible at `opacity-60`, fully opaque on hover/focus |

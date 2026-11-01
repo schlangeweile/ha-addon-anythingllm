@@ -204,6 +204,12 @@ except the activity ordering, which the server also persists.
   the list expands automatically instead of hiding it.
 - **Newest first**, and **New Thread is at the top** of the list.
 - The old connector lines are gone; the list uses one subtle left border.
+- Upstream's virtual `*New Thread` placeholder row is gone. It duplicated the
+  button and reappeared as a phantom entry whenever the workspace route had
+  no thread slug (after deleting the active thread, or on a newly created
+  workspace); the button is now the only way to start a chat. Named threads
+  and the `default` row (shown when the default thread has chats) still
+  behave as before.
 - Threads are ordered by **activity**, not creation: sending a message moves
   the thread to the top immediately, and after a reload (or on a second
   device) the server-side `lastUpdatedAt` bump keeps it there.

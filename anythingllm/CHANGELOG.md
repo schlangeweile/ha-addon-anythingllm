@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.19.0-ha4
+
+- Sidebar: upstream's virtual `*New Thread` row is no longer rendered. It
+  appeared on every bare workspace route - after deleting the active thread
+  (which redirects to `/workspace/<slug>`) and right after creating a
+  workspace - below the real threads, was highlighted as active, and
+  vanished on the next thread click. It also linked to the home page instead
+  of the workspace. The New Thread button at the top (ha3, R3) is now the
+  single way to start a chat; named threads and the `default` row (when the
+  default thread has chats) are unchanged. UI fork commit `ef7b430`.
+- No server, storage, API or option changes.
+
 ## 1.19.0-ha3
 
 - UI variant C: the frontend is now built from the public UI fork
