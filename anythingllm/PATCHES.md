@@ -29,6 +29,7 @@ fork.
 | 7 | [`snippets/security-headers.js`](patches/snippets/security-headers.js) | `server/index.js` | Content-Security-Policy for the production SPA | none | Upstream ships a suitable CSP |
 | 8 | [`snippets/thread-activity.js`](patches/snippets/thread-activity.js) | `server/models/workspaceChats.js` | Bump the thread's `lastUpdatedAt` when a chat is saved | none | Upstream bumps thread activity itself |
 | 9 | Inline anchors in `apply.js` | `server/models/workspaceThread.js`, `server/endpoints/workspaces.js` | Store auto-generated thread names up to 64 characters instead of 22, so the UI truncates by width | none | Upstream stores longer names |
+| 10 | Inline anchors in `apply.js`, [`snippets/manifest.js`](patches/snippets/manifest.js) | `server/index.js`, `server/utils/boot/MetaGenerator.js` | Serve the PWA manifest from the configured branding (route before `express.static`) and emit the fork's 192/512/maskable icons | none | Upstream ships both (issue #6943) |
 
 The image patch (#5/#6) is always applied; it only affects the native
 DeepSeek provider. The CSP (#7), thread-activity (#8) and thread-name (#9)
@@ -271,6 +272,38 @@ patch (#8) is a post-create `update`; both are called out separately below.
 - The client sorts by `lastUpdatedAt ?? createdAt` and emits
   `THREAD_ACTIVITY_EVENT` immediately after sending; this patch is the
   cross-device source of truth for the next fetch.
+
+### 9. `server/index.js` + `MetaGenerator.js` (PWA manifest)
+
+Upstream generates `/manifest.json` from `meta_page_title`, but registers the
+route **after** `express.static`. Because the vite build copies
+`frontend/public/manifest.json` (hard-coded `"name": "AnythingLLM"`) into
+`server/public`, the static file always wins and the configured instance name
+never reaches the installed PWA
+([upstream #6943](https://github.com/Mintplex-Labs/anything-llm/issues/6943)).
+
+- Label `server manifest route removal`
+  - Anchor: the whole `app.get("/manifest.json", ...)` block plus the
+    following blank line, as it sits after the static middleware.
+  - Replacement: empty (the block moves up).
+- Label `server manifest route order`
+  - Anchor: `  app.use(` + `    express.static(path.resolve(__dirname, "public"), {`
+  - Replacement: the same `app.get("/manifest.json", ...)` handler in front
+    of the static middleware, so the dynamic response wins.
+- Label `MetaGenerator manifest output`
+  - Anchor: the generated `manifest` object through
+    `response.type("application/json").status(200).send(manifest).end();`
+  - Replacement: [`snippets/manifest.js`](patches/snippets/manifest.js) -
+    name falls back to `custom_app_name` when no page title is set, keeps the
+    fork's `pwa-192x192.png` / `pwa-512x512.png` / `pwa-maskable-512x512.png`
+    (upstream only emits a single `sizes: "any"` favicon entry) and sends
+    `Cache-Control: no-store` so a renamed instance is not served from the
+    browser's manifest cache.
+- The static `server/public/manifest.json` stays in place (it is still the
+  manifest for `vite dev`); the route order makes it inert in production.
+- When upstream moves the route, the `server manifest route removal` anchor
+  disappears and the build fails - then drop the two route labels and keep
+  only the `MetaGenerator` part until upstream also ships the icon set.
 
 ## Vision behaviour
 

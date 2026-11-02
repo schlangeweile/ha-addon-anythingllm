@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.19.0-ha8
+
+- PWA name: the install prompt and the installed app now use the configured
+  instance name. The web manifest is served dynamically (new server patch
+  #10) instead of the static `server/public/manifest.json`, whose name was
+  hard-coded to "AnythingLLM" and always won because `express.static` was
+  registered before the `/manifest.json` route. The name follows
+  *Customization -> Browser Appearance -> Title* and falls back to
+  *Customization -> Name* (`custom_app_name`) and then "AnythingLLM". The
+  manifest keeps the add-on's 192/512/maskable icons and is served with
+  `Cache-Control: no-store`. An already installed PWA must be removed and
+  re-added once, because the browser keeps the name of an existing
+  installation. Upstream issue: Mintplex-Labs/anything-llm#6943.
+- No storage migration, API shape or add-on option changes.
+- Verified on amd64 with the built image: manifest served dynamically
+  (`Cache-Control: no-store`, four icons), name switches to the configured
+  title without a restart, icon files resolve 200, and the ha7 mobile-search
+  smoke still passes 16/16.
+
 ## 1.19.0-ha7
 
 - Mobile sidebar: the drawer now shows the same search row as the desktop

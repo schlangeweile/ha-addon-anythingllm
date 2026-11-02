@@ -274,6 +274,17 @@ tuxedo mark on a white background: multi-size `favicon.ico`, 512 px
 purposes. Hard-refresh the browser after an update; an already installed PWA
 must be removed and re-added to pick up the new icon.
 
+### App name in the installed PWA
+
+The name in the browser's install prompt and on the installed app comes from
+the web manifest. This image serves the manifest dynamically (server patch
+#10) and takes the name from *Settings → Customization → Browser Appearance →
+Title*, falling back to *Customization → Name* and then "AnythingLLM".
+Upstream answers `/manifest.json` from a static file with a hard-coded
+"AnythingLLM", so renaming the instance only changed the tab title there.
+An already installed PWA may keep its old name; remove it and add it again to
+pick up the new one.
+
 ### Line breaks in your own messages
 
 Newlines and pasted console output in user messages are preserved (one line

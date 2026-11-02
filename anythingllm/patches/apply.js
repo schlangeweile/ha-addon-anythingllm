@@ -12,8 +12,10 @@
  * DeepSeek provider hard-codes the model as text-only even though
  * deepseek-flash accepts images, the SPA has no CSP despite storing its JWT
  * in localStorage, Prisma never bumps a thread's lastUpdatedAt when a chat
- * is saved, and auto-generated thread names are cut to 22 characters so the
- * UI can never use the available width. The changes are:
+ * is saved, auto-generated thread names are cut to 22 characters so the UI
+ * can never use the available width, and the PWA manifest route is shadowed
+ * by the static manifest so the configured instance name never reaches the
+ * installed app. The changes are:
  *
  *   1. server/utils/agents/aibitat/plugins/helpers/deepseek.js (new helper)
  *   2. server/utils/agents/aibitat/plugins/web-browsing.js (provider)
@@ -28,6 +30,9 @@
  *   8. server/models/workspaceThread.js and server/endpoints/workspaces.js
  *      (store up to 64 characters of an auto-generated thread name and let
  *      the UI truncate by rendered width)
+ *   9. server/index.js and server/utils/boot/MetaGenerator.js (serve the PWA
+ *      manifest from the configured branding before express.static, and emit
+ *      the UI fork's icon set)
  *
  * Frontend changes, including the two former CSS snippets, live in the UI
  * fork (public branch ha-ui/v1.19.0) and are copied in as a built overlay.
@@ -318,5 +323,61 @@ workspacesEndpoint = replaceOnce(
   "forked thread auto-name length"
 );
 writeApp("server/endpoints/workspaces.js", workspacesEndpoint);
+
+// 9. Serve the PWA manifest dynamically. Upstream generates it from the
+//    configured page title, but registers the route *after* express.static,
+//    which serves the static public/manifest.json (hard-coded "AnythingLLM")
+//    first - so "Browser Appearance -> Title" never reaches the installed app.
+//    Move the route above the static middleware and keep the fork's PWA icon
+//    set. Upstream issue: Mintplex-Labs/anything-llm#6943.
+let manifestIndex = readApp("server/index.js");
+manifestIndex = replaceOnce(
+  manifestIndex,
+  `  app.get("/manifest.json", async function (_, response) {
+    IndexPage.generateManifest(response);
+    return;
+  });
+
+`,
+  "",
+  "server manifest route removal"
+);
+manifestIndex = replaceOnce(
+  manifestIndex,
+  `  app.use(
+    express.static(path.resolve(__dirname, "public"), {`,
+  `  app.get("/manifest.json", async function (_, response) {
+    IndexPage.generateManifest(response);
+    return;
+  });
+
+  app.use(
+    express.static(path.resolve(__dirname, "public"), {`,
+  "server manifest route order"
+);
+writeApp("server/index.js", manifestIndex);
+
+let metaGenerator = readApp("server/utils/boot/MetaGenerator.js");
+metaGenerator = replaceOnce(
+  metaGenerator,
+  `      const manifest = {
+        name: manifestName,
+        short_name: manifestName,
+        display: "standalone",
+        orientation: "portrait",
+        start_url: "/",
+        icons: [
+          {
+            src: iconUrl,
+            sizes: "any",
+          },
+        ],
+      };
+
+      response.type("application/json").status(200).send(manifest).end();`,
+  readSnippet("manifest.js"),
+  "MetaGenerator manifest output"
+);
+writeApp("server/utils/boot/MetaGenerator.js", metaGenerator);
 
 console.log("[deepseek-patch] done");
