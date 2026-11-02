@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.19.0-ha7
+
+- Mobile sidebar: the drawer now shows the same search row as the desktop
+  sidebar - the search field for workspace and thread names plus the compact
+  "+" button for a new workspace - instead of the full-width New Workspace
+  button. Both the search and the compact new-workspace action were
+  unreachable on phones before. Results open directly below the input inside
+  the drawer; the desktop sidebar and its result overlay are unchanged.
+  Upstream request: Mintplex-Labs/anything-llm#6945.
+- Rebased UI fork pin (`UI_FORK_SHA`), no storage migration, API shape or
+  add-on option changes.
+
 ## 1.19.0-ha6
 
 - Chat metrics: the per-message metrics line now also shows the token usage

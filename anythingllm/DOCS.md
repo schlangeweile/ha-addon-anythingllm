@@ -235,6 +235,12 @@ field empties it. Focusing or clicking the field shows the last results
 again. Result rows and workspace/thread labels truncate by the available
 width, not by a fixed character count.
 
+On phones the same row is part of the sidebar drawer: search field plus the
+compact **+** button for a new workspace, where upstream only offers the
+full-width New Workspace button. Results open directly below the input
+inside the drawer. Upstream does not have this yet
+(Mintplex-Labs/anything-llm#6945), so it is a UI fork difference.
+
 ### Settings menu
 
 Menu entries use the same 14 px type scale as the rest of the UI. Main

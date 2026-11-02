@@ -28,11 +28,13 @@ workspace-settings layout on phones; see below.
 > 1.19.0-ha6 re-ran the full UI smoke on clean containers: the ha5
 > regression set (phantom row 14/14, name toggle 10/10, search 15/15,
 > settings type 6/6) plus chat metrics (9/9), the chat context label (9/9)
-> and the favicon/PWA manifest check. Light and dark themes were covered.
+> and the favicon/PWA manifest check. 1.19.0-ha7 adds the mobile sidebar
+> search row and passed a dedicated 16-check smoke (mobile drawer at 390 px,
+> desktop regression at 1440 px, light and dark themes).
 > Measured RAM: ~290 MiB idle on amd64 (1.19.0-ha1). Final confirmation on
 > real Odroid N2+ hardware is still pending - see the add-on changelog for
 > details.
-> The add-on layer is at **1.19.0-ha6** (consistent cold backups, Open Web
+> The add-on layer is at **1.19.0-ha7** (consistent cold backups, Open Web
 > UI button, documentation fixes, an optional experimental DeepSeek
 > Search/Fetch patch, native DeepSeek image support for `deepseek-flash`,
 > a CSP, and a UI fork with the thread-list, collapse, line-break, action,
@@ -42,7 +44,7 @@ workspace-settings layout on phones; see below.
 | Architecture | Status |
 | ------------ | ------ |
 | aarch64 (ARMv8.0) | 1.18.0 statically + emulated verified; 1.19.0 re-scanned statically; on-device test pending |
-| amd64        | 1.18.0 full smoke test; 1.19.0-ha5 full UI smoke passed; 1.19.0-ha6 UI/metrics/PWA smoke passed |
+| amd64        | 1.18.0 full smoke test; 1.19.0-ha5 full UI smoke passed; 1.19.0-ha6 UI/metrics/PWA smoke passed; 1.19.0-ha7 mobile-search smoke passed |
 
 ## Requirements
 
