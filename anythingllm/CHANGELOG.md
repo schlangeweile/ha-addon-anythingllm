@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.19.0-ha9
+
+- Chat, agent mode: no more stray activity row ("Gedanken") below a finished
+  answer. The websocket close handler used to append a synthetic
+  `"Agent session complete."` status to the live history; it is never
+  persisted, so it only showed up as a leftover thoughts block (and, as the
+  last history item, also hid the answer's regenerate action) until a reload
+  rebuilt the history from the server. The close notice is now treated as
+  stream plumbing, like the existing `@agent:` handoff notice.
+- That block's "agent done" icon is the brain glyph now. The bitmap it used
+  was a 1805x1805 PNG in a 20px slot; whenever it loaded slowly or failed,
+  its alt text leaked into the row as "Ag".
+- The finished-chain label is localized (`Thought for 12.3s` /
+  `Nachgedacht für 12.3s`) instead of hardcoded English.
+- Upstream issue (taken by a maintainer for the status-append part):
+  Mintplex-Labs/anything-llm#6959. The icon and label changes are
+  add-on-side until upstream covers them.
+- No storage migration, API shape or add-on option changes.
+
 ## 1.19.0-ha8
 
 - PWA name: the install prompt and the installed app now use the configured

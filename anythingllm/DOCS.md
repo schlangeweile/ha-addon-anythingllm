@@ -300,6 +300,23 @@ touch tablets and discoverable on desktop. See the upstream caveats in the
 edit dialog: hidden chats still count against the daily limit and workspace
 memory may already contain the old exchange.
 
+### Agent status block
+
+When an agent session ends, upstream appends a synthetic "Agent session
+complete." status to the live chat history. It is never persisted, so it only
+ever appeared as a stray "Thoughts" row below the finished answer (and, being
+the last history entry, it also hid the answer's regenerate action) until a
+reload rebuilt the history from the server. The add-on no longer records that
+status. The row's "agent done" icon is the brain glyph now: upstream used a
+1805x1805 PNG in a 20 px slot, and its alt text ("Agent complete") leaked into
+the row as "Ag" whenever the image loaded slowly or failed. Finished-chain
+labels are localized ("Thought for 12.3s" / "Nachgedacht für 12.3s"). The
+status-append half is upstream issue
+[Mintplex-Labs/anything-llm#6959](https://github.com/Mintplex-Labs/anything-llm/issues/6959),
+which a maintainer has taken; the icon and label changes stay add-on-side until
+upstream covers them. The same code ships in upstream v1.19.0, so all of this is
+a UI fork difference.
+
 ### Keep the screen awake
 
 **UI Preferences → Keep the screen awake** is off by default. While a reply
