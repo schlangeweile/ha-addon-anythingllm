@@ -239,7 +239,11 @@ On phones the same row is part of the sidebar drawer: search field plus the
 compact **+** button for a new workspace, where upstream only offers the
 full-width New Workspace button. Results open directly below the input
 inside the drawer. Upstream does not have this yet
-(Mintplex-Labs/anything-llm#6945), so it is a UI fork difference.
+([Mintplex-Labs/anything-llm#6945](https://github.com/Mintplex-Labs/anything-llm/issues/6945)),
+so it is a UI fork difference. The maintainers accepted it as a
+frontend-only change on 2026-11-02 (swap the drawer's New Workspace button for
+the existing `SearchBox`, then fix where its result overlay opens) - the fork
+change drops out at the next rebase once that ships.
 
 ### Settings menu
 
@@ -281,9 +285,14 @@ the web manifest. This image serves the manifest dynamically (server patch
 #10) and takes the name from *Settings → Customization → Browser Appearance →
 Title*, falling back to *Customization → Name* and then "AnythingLLM".
 Upstream answers `/manifest.json` from a static file with a hard-coded
-"AnythingLLM", so renaming the instance only changed the tab title there.
-An already installed PWA may keep its old name; remove it and add it again to
-pick up the new one.
+"AnythingLLM", so renaming the instance only changed the tab title there
+([Mintplex-Labs/anything-llm#6943](https://github.com/Mintplex-Labs/anything-llm/issues/6943)).
+Upstream accepted the fix on 2026-11-02: the manifest route has to be
+registered above `express.static`, which is exactly what server patch #10
+already does. When that ships, the route-order part of the patch can go; the
+generator override stays, because the fork ships 192/512/maskable PWA icons
+while upstream's generator emits a single favicon entry. An already installed
+PWA may keep its old name; remove it and add it again to pick up the new one.
 
 ### Line breaks in your own messages
 
