@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.19.0-ha10
+
+- Settings > Agent Skills: the sliders button (max tool calls, intelligent
+  skill selection, clarifying questions) is now rendered on mobile too. The
+  mobile render branch of the upstream page never mounted the settings
+  component, so those values could only be changed from a desktop browser;
+  the modal itself was already responsive. Upstream issue (still open on
+  master): Mintplex-Labs/anything-llm#7072.
+- Chat: the activity chain shows a live elapsed timer while it is running,
+  e.g. "Das Modell denkt… seit 12s" and "Websuche… · 12s". It uses the same
+  client-side chain start as the settled "Nachgedacht für 12.3s" label, so
+  the value does not jump when the run finishes. The timer re-renders only
+  its own label, derives the value from the clock (background tabs stay
+  correct) and stops when the chain settles. Chains loaded from history stay
+  without a duration, as before. Client-only, no server or storage change.
+- No storage migration, API shape or add-on option changes.
+- Verified on amd64: UI overlay builds from the pinned fork; the Agent
+  Skills button and modal open at 390x844 and 1440x900 in light and dark;
+  a slow `<think>` stream ticks 0s -> 10s and settles at 11.0s with no
+  console or CSP errors.
+
 ## 1.19.0-ha9
 
 - Chat, agent mode: no more stray activity row ("Gedanken") below a finished
