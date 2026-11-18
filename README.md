@@ -11,9 +11,10 @@ It targets devices like the **Hardkernel Odroid N2+** and Raspberry Pi 4/5
 (aarch64) as well as x86-64 machines. The add-on is a thin layer on the
 official multi-arch AnythingLLM image: no external database, no object
 storage, no extra services - SQLite and the LanceDB vector store are
-embedded, and all state persists on the add-on's data volume. DeepSeek web search
-and image attachments are built in since 1.20; the image keeps an optional
-local Fetch patch (off by default) for the agent's scrape skill. See below.
+embedded, and all state persists on the add-on's data volume. DeepSeek web
+search and image attachments are built in since 1.20; the image keeps an
+optional local Fetch patch (off by default) for the agent's scrape skill.
+See below.
 
 > **Status:** experimental, but verified on amd64. The 1.20.0-ha1 image
 > passes a 14/14 API smoke test (boot, multi-user bootstrap, provider config,
@@ -29,8 +30,8 @@ local Fetch patch (off by default) for the agent's scrape skill. See below.
 > canvas, sharp, onnxruntime, mdpdf and the bundled Chromium 119 run under
 > `qemu-aarch64 -cpu cortex-a53`. Final confirmation on real Odroid N2+
 > hardware is still pending - see the add-on changelog for details.
-> Measured RAM: ~290 MiB idle on amd64 (1.19.0-ha1); the 1.20.0 base adds
-> the same embedded stack, see the changelog.
+> RAM: the last measurement was ~290 MiB idle on amd64 (1.19.0-ha1); no new
+> measurement was taken for 1.20.0 because the embedded stack is unchanged.
 > The add-on layer is at **1.20.0-ha1** (AnythingLLM **1.20.0**): upstream
 > now ships the DeepSeek vision and web-search work, the dynamic PWA
 > manifest, the mobile sidebar search, the live thinking timer and the
