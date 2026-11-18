@@ -10,20 +10,20 @@
 # Pin only plain version tags. The pg-/railway-/render- prefixed tags are
 # deployment presets for external Postgres platforms (railway/render are
 # amd64-only) - never use them here.
-ARG ANYTHINGLLM_VERSION=1.19.0
+ARG ANYTHINGLLM_VERSION=1.20.0
 
-# Frontend overlay. The UI fork is the public branch ha-ui/v1.19.0 of
-# schlangeweile/anything-llm (upstream tag v1.19.0 + our UI commits). The
+# Frontend overlay. The UI fork is the public branch ha-ui/v1.20.0 of
+# schlangeweile/anything-llm (upstream tag v1.20.0 + our UI commits). The
 # stage runs natively on the builder ($BUILDPLATFORM), so the frontend build
 # is plain JS and never runs under QEMU; it has no ARMv8.0 implications.
 # Pin the commit SHA, not a branch: the tarball URL is then immutable. The
 # SHA-256 makes the downloaded tarball reproducible, and the version check
 # fails the build when the fork is based on a different upstream release.
 # Keep NODE_ENV=production: a dev-mode React bundle is ~468 KB larger.
-ARG UI_FORK_SHA=efc7e9e013b70f89788dd67a187e72845a7cee3a
-ARG UI_FORK_SHA256=5eb9612042043b53cf3100dd900cd65d8e0d88b56a07425066c6e085314f4e3d
+ARG UI_FORK_SHA=2bbd450f2efcb88d3aebff4c7ac98f85a454413f
+ARG UI_FORK_SHA256=d076846ae9e17d95af2477a5cfc4aaca7a317f7e433d4e665f4042d5a19d996e
 
-FROM --platform=$BUILDPLATFORM node:18-slim AS ui
+FROM --platform=$BUILDPLATFORM node:24-slim AS ui
 ARG UI_FORK_SHA
 ARG UI_FORK_SHA256
 ARG ANYTHINGLLM_VERSION
@@ -54,7 +54,7 @@ FROM mintplexlabs/anythingllm:${ANYTHINGLLM_VERSION}
 # as root inside the isolated add-on container (usual add-on trust level).
 USER root
 
-# Everything persistent must live on the add-on /data volume. Upstream 1.19.0
+# Everything persistent must live on the add-on /data volume. Upstream 1.20.0
 # honors STORAGE_DIR for documents/LanceDB/vector-cache, but the SQLite
 # database and the runtime .env are written relative to /app/server instead
 # (schema.prisma has a literal url "file:../storage/anythingllm.db", the env
@@ -83,25 +83,22 @@ RUN rm -rf /app/server/storage \
 # files; the CSS snippets now live in the fork and no longer touch public/.
 COPY --from=ui /src/frontend/dist /app/server/public
 
-# Experimental local patch (not upstream): DeepSeek Search/Fetch support,
-# image attachments for the native DeepSeek provider, a Content-Security-
-# Policy for the SPA, and a thread-activity timestamp update. Upstream 1.19.0
-# has no DeepSeek web-search provider, so this layer adds one plus an optional
-# DeepSeek Fetch path for the agent's scrape skill. Both are off by default and
-# controlled by the add-on options deepseek_search / deepseek_fetch. Upstream
-# also hard-codes DeepSeek as text-only and drops chat images even though
-# deepseek-flash accepts them; the patch forwards images for that model (and
-# still strips them for text-only models such as deepseek-v4-pro). The CSP
-# closes the JWT-in-localStorage gap, and WorkspaceChats.new bumps a thread's
-# lastUpdatedAt so the sidebar can sort by activity. The patch script fails the
-# build if the pinned upstream version or an anchor changes - re-check
-# patches/ on every upstream bump. Remove the Search/Fetch part once upstream
-# supports DeepSeek Search natively.
+# Local patch layer (not fully upstream): an optional DeepSeek Fetch path for
+# the agent's scrape skill (option deepseek_fetch, off by default), a
+# Content-Security-Policy for the SPA, a thread-activity timestamp update, the
+# longer auto-generated thread names and the fork's PWA icon set. Upstream
+# 1.20.0 already ships DeepSeek vision and a DeepSeek agent search provider
+# (configured with AGENT_DEEPSEEK_API_KEY in the web-search settings) and
+# serves the dynamic manifest before express.static, so those former patches
+# are gone. The CSP closes the JWT-in-localStorage gap; WorkspaceChats.upsert
+# bumps a thread's lastUpdatedAt so the sidebar can sort by activity. The patch
+# script fails the build if the pinned upstream version or an anchor changes -
+# re-check patches/ on every upstream bump.
 COPY patches /opt/anythingllm-patches
 RUN node /opt/anythingllm-patches/apply.js \
  && rm -rf /opt/anythingllm-patches
 
-# Privacy: opt out of anonymous telemetry. Upstream 1.19.0 evaluates
+# Privacy: opt out of anonymous telemetry. Upstream 1.20.0 evaluates
 # DISABLE_TELEMETRY (server/utils/telemetry/index.js); the older
 # DISABLE_ANONYMOUS_TELEMETRY name is silently ignored. The entrypoint
 # separately sets CHECKPOINT_DISABLE=1 (Prisma telemetry).

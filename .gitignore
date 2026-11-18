@@ -5,3 +5,5 @@ AGENTS.md
 lse_scan.py
 mock_openai.py
 feature-requests/
+.scratch/
+__pycache__/

@@ -2,40 +2,36 @@
 "use strict";
 
 /**
- * Fail-fast server patch layer: DeepSeek Search/Fetch, native image support,
- * a Content-Security-Policy, thread-activity bookkeeping and longer
- * auto-generated thread names.
+ * Fail-fast server patch layer: DeepSeek Fetch, a Content-Security-Policy,
+ * thread-activity bookkeeping, longer auto-generated thread names and the
+ * PWA manifest icon set.
  *
  * The add-on is normally a thin image on top of the official AnythingLLM
  * image. This patch deliberately changes the upstream server code for five
- * reasons: upstream 1.19.0 has no DeepSeek web-search provider, its native
- * DeepSeek provider hard-codes the model as text-only even though
- * deepseek-flash accepts images, the SPA has no CSP despite storing its JWT
- * in localStorage, Prisma never bumps a thread's lastUpdatedAt when a chat
- * is saved, auto-generated thread names are cut to 22 characters so the UI
- * can never use the available width, and the PWA manifest route is shadowed
- * by the static manifest so the configured instance name never reaches the
- * installed app. The changes are:
+ * reasons: upstream 1.20.0 has no DeepSeek Fetch path for the agent's scrape
+ * skill, the SPA has no CSP despite storing its JWT in localStorage, Prisma
+ * never bumps a thread's lastUpdatedAt when a chat is saved, auto-generated
+ * thread names are cut to 22 characters so the UI can never use the available
+ * width, and the generated PWA manifest only lists the favicon although the
+ * UI fork ships a 192/512/maskable icon set. The changes are:
  *
  *   1. server/utils/agents/aibitat/plugins/helpers/deepseek.js (new helper)
- *   2. server/utils/agents/aibitat/plugins/web-browsing.js (provider)
- *   3. server/models/systemSettings.js (allowed provider value)
- *   4. server/utils/collectorApi/index.js (Fetch fallback for agent scraping)
- *   5. server/utils/AiProviders/deepseek/index.js and
- *      server/utils/agents/aibitat/providers/deepseek.js (image attachments
- *      for vision-capable DeepSeek models)
- *   6. server/index.js (Content-Security-Policy for the production SPA)
- *   7. server/models/workspaceChats.js (bump a thread's lastUpdatedAt when a
+ *   2. server/utils/collectorApi/index.js (Fetch fallback for agent scraping)
+ *   3. server/index.js (Content-Security-Policy for the production SPA)
+ *   4. server/models/workspaceChats.js (bump a thread's lastUpdatedAt when a
  *      chat is saved, so the sidebar can sort by activity)
- *   8. server/models/workspaceThread.js and server/endpoints/workspaces.js
+ *   5. server/models/workspaceThread.js and server/endpoints/workspaces.js
  *      (store up to 64 characters of an auto-generated thread name and let
  *      the UI truncate by rendered width)
- *   9. server/index.js and server/utils/boot/MetaGenerator.js (serve the PWA
- *      manifest from the configured branding before express.static, and emit
- *      the UI fork's icon set)
+ *   6. server/utils/boot/MetaGenerator.js (emit the UI fork's PWA icon set)
  *
- * Frontend changes, including the two former CSS snippets, live in the UI
- * fork (public branch ha-ui/v1.19.0) and are copied in as a built overlay.
+ * Upstream 1.20.0 now ships the DeepSeek vision support and the DeepSeek
+ * agent search provider that earlier add-on versions patched in; those
+ * patches were removed. The PWA manifest route order is upstream too now, so
+ * only the generator output is overridden.
+ *
+ * Frontend changes live in the UI fork (public branch ha-ui/v1.20.0) and are
+ * copied in as a built overlay.
  *
  * The script asserts the pinned upstream version and fails the image build if
  * an anchor is no longer present. That is intentional: on every upstream
@@ -46,10 +42,10 @@ const fs = require("fs");
 const path = require("path");
 
 const APP_DIR = "/app";
-const EXPECTED_VERSION = "1.19.0";
+const EXPECTED_VERSION = "1.20.0";
 
 function fail(message) {
-  console.error(`[deepseek-patch] ERROR: ${message}`);
+  console.error(`[addon-patch] ERROR: ${message}`);
   process.exit(1);
 }
 
@@ -62,7 +58,7 @@ function readApp(relativePath) {
 function writeApp(relativePath, content) {
   const file = path.join(APP_DIR, relativePath);
   fs.writeFileSync(file, content);
-  console.log(`[deepseek-patch] patched ${relativePath}`);
+  console.log(`[addon-patch] patched ${relativePath}`);
 }
 
 function readSnippet(name) {
@@ -87,73 +83,18 @@ if (process.env.DEPLOYMENT_VERSION !== EXPECTED_VERSION) {
   );
 }
 
-// 1. Install the DeepSeek API helper next to the other plugin helpers.
+// 1. Install the DeepSeek Fetch helper next to the other plugin helpers.
 const helperTarget =
   "server/utils/agents/aibitat/plugins/helpers/deepseek.js";
 fs.mkdirSync(path.dirname(path.join(APP_DIR, helperTarget)), {
   recursive: true,
 });
 fs.copyFileSync(path.join(__dirname, "deepseek.js"), path.join(APP_DIR, helperTarget));
-console.log(`[deepseek-patch] installed ${helperTarget}`);
+console.log(`[addon-patch] installed ${helperTarget}`);
 
-// 2. Patch the web-browsing plugin: import the helper, allow the provider,
-//    force it when the add-on option is enabled, and add the provider itself.
-let webBrowsing = readApp(
-  "server/utils/agents/aibitat/plugins/web-browsing.js"
-);
-
-webBrowsing = replaceOnce(
-  webBrowsing,
-  'const { getAnythingLLMUserAgent } = require("../../../../endpoints/utils");',
-  'const { getAnythingLLMUserAgent } = require("../../../../endpoints/utils");\n' +
-    'const { searchDeepSeek, getAddonOption } = require("./helpers/deepseek");',
-  "web-browsing helper import"
-);
-
-webBrowsing = replaceOnce(
-  webBrowsing,
-  `            const provider =
-              (await SystemSettings.get({ label: "agent_search_provider" }))
-                ?.value ?? "unknown";`,
-  readSnippet("provider-override.js"),
-  "web-browsing provider override"
-);
-
-webBrowsing = replaceOnce(
-  webBrowsing,
-  `              case "you-search":
-                engine = "_youSearch";
-                break;`,
-  `              case "you-search":
-                engine = "_youSearch";
-                break;
-              case "deepseek-search":
-                engine = "_deepSeekSearch";
-                break;`,
-  "web-browsing provider case"
-);
-
-webBrowsing = replaceOnce(
-  webBrowsing,
-  "          _tavilySearch: async function (query) {",
-  readSnippet("web-browsing-search.js") +
-    "          _tavilySearch: async function (query) {",
-  "web-browsing DeepSeek provider"
-);
-
-writeApp("server/utils/agents/aibitat/plugins/web-browsing.js", webBrowsing);
-
-// 3. Allow the new provider value in the system-settings validator.
-let systemSettings = readApp("server/models/systemSettings.js");
-systemSettings = replaceOnce(
-  systemSettings,
-  '            "you-search",\n',
-  '            "you-search",\n            "deepseek-search",\n',
-  "systemSettings provider allowlist"
-);
-writeApp("server/models/systemSettings.js", systemSettings);
-
-// 4. Use DeepSeek Fetch for the agent's scrape skill when enabled.
+// 2. Use DeepSeek Fetch for the agent's scrape skill when enabled. Upstream
+//    only routes through the collector, which cannot run Chromium as root;
+//    DeepSeek Fetch is the add-on's non-Chromium path for single URLs.
 let collectorApi = readApp("server/utils/collectorApi/index.js");
 collectorApi = replaceOnce(
   collectorApi,
@@ -176,95 +117,7 @@ collectorApi = replaceOnce(
 );
 writeApp("server/utils/collectorApi/index.js", collectorApi);
 
-// 5. Native DeepSeek provider: pass image attachments through to
-//    vision-capable models (deepseek-flash). Upstream 1.19.0 treats every
-//    DeepSeek model as text-only and drops images in both chat and agent mode.
-let deepseekChat = readApp("server/utils/AiProviders/deepseek/index.js");
-deepseekChat = replaceOnce(
-  deepseekChat,
-  `const {
-  handleDefaultStreamResponseV2,
-  formatChatHistory,
-} = require("../../helpers/chat/responses");`,
-  `const {
-  handleDefaultStreamResponseV2,
-  formatChatHistory,
-} = require("../../helpers/chat/responses");
-const { attachmentToContentBlock } = require("../../helpers/attachments");`,
-  "deepseek chat attachment helper import"
-);
-deepseekChat = replaceOnce(
-  deepseekChat,
-  `  constructPrompt({
-    systemPrompt = "",
-    contextTexts = [],
-    chatHistory = [],
-    userPrompt = "",
-  }) {
-    const prompt = {
-      role: "system",
-      content: \`\${systemPrompt}\${this.#appendContext(contextTexts)}\`,
-    };
-    return [
-      prompt,
-      ...formatChatHistory(chatHistory, ({ userPrompt }) => userPrompt),
-      { role: "user", content: userPrompt },
-    ];
-  }`,
-  readSnippet("deepseek-chat-images.js"),
-  "deepseek chat image prompt"
-);
-writeApp("server/utils/AiProviders/deepseek/index.js", deepseekChat);
-
-let deepseekAgent = readApp(
-  "server/utils/agents/aibitat/providers/deepseek.js"
-);
-deepseekAgent = replaceOnce(
-  deepseekAgent,
-  'const { toValidNumber } = require("../../../http/index.js");',
-  'const { toValidNumber } = require("../../../http/index.js");\n' +
-    'const {\n  attachmentToContentBlock,\n} = require("../../../helpers/attachments");',
-  "deepseek agent attachment helper import"
-);
-deepseekAgent = replaceOnce(
-  deepseekAgent,
-  `  /**
-   * DeepSeek models do not support vision/image inputs.
-   * Strip attachments from messages to prevent API errors.
-   * @param {Object} message - Message with potential attachments
-   * @returns {Object} Message without attachments
-   */
-  formatMessageWithAttachments(message) {
-    const { attachments: _, ...rest } = message;
-    return rest;
-  }`,
-  readSnippet("deepseek-agent-images.js"),
-  "deepseek agent attachment formatting"
-);
-deepseekAgent = replaceOnce(
-  deepseekAgent,
-  `  /**
-   * Strip attachments from all messages since DeepSeek doesn't support vision.
-   * @param {Array} messages - Array of messages
-   * @returns {Array} Messages with attachments removed
-   */
-  #stripAttachments(messages) {
-    let hasAttachments = false;`,
-  `  /**
-   * Strip attachments from messages for text-only DeepSeek models. Vision
-   * models (deepseek-flash) keep them so formatMessageWithAttachments can
-   * build image_url blocks.
-   * @param {Array} messages - Array of messages
-   * @returns {Array} Messages with attachments removed when unsupported
-   */
-  #stripAttachments(messages) {
-    if (this.#supportsVision) return messages;
-    let hasAttachments = false;`,
-  "deepseek agent stripAttachments guard"
-);
-writeApp("server/utils/agents/aibitat/providers/deepseek.js", deepseekAgent);
-
-// 6. Enforce a Content-Security-Policy on the production SPA. The JWT is kept
+// 3. Enforce a Content-Security-Policy on the production SPA. The JWT is kept
 //    in localStorage, so without a CSP a single successful XSS can read and
 //    exfiltrate it. Add the header before express.static and the SPA
 //    catch-all, which are the only production routes that serve HTML.
@@ -278,22 +131,21 @@ serverIndex = replaceOnce(
 );
 writeApp("server/index.js", serverIndex);
 
-// 7. Bump the thread's lastUpdatedAt whenever a chat is saved. The UI sorts
+// 4. Bump the thread's lastUpdatedAt whenever a chat is saved. The UI sorts
 //    threads by lastUpdatedAt (falling back to createdAt); Prisma does not
 //    maintain that column automatically because it is @default(now()), not
-//    @updatedAt. The update is best-effort so a deleted thread cannot fail a
-//    chat that was already created.
+//    @updatedAt. Upstream 1.20.0 replaced WorkspaceChats.new with upsert, so
+//    the bump happens after both creates and updates. It is best-effort so a
+//    deleted thread cannot fail a chat that was already created.
 let workspaceChats = readApp("server/models/workspaceChats.js");
 workspaceChats = replaceOnce(
   workspaceChats,
-  `          api_session_id: apiSessionId,
-          include,
-        },
+  `        // On creates, we need to set the prompt or else record will fail.
+        create: { ...payload, prompt: data.prompt },
       });
       return { chat, message: null };`,
-  `          api_session_id: apiSessionId,
-          include,
-        },
+  `        // On creates, we need to set the prompt or else record will fail.
+        create: { ...payload, prompt: data.prompt },
       });
 ` +
     readSnippet("thread-activity.js") +
@@ -302,7 +154,7 @@ workspaceChats = replaceOnce(
 );
 writeApp("server/models/workspaceChats.js", workspaceChats);
 
-// 8. Store longer auto-generated thread names. Upstream cuts the first prompt
+// 5. Store longer auto-generated thread names. Upstream cuts the first prompt
 //    (and a forked thread's last answer) to 22 characters at creation time, so
 //    the sidebar and search can never show more even when the row has room.
 //    Store up to 64 characters; every surface already truncates by CSS width.
@@ -324,39 +176,11 @@ workspacesEndpoint = replaceOnce(
 );
 writeApp("server/endpoints/workspaces.js", workspacesEndpoint);
 
-// 9. Serve the PWA manifest dynamically. Upstream generates it from the
-//    configured page title, but registers the route *after* express.static,
-//    which serves the static public/manifest.json (hard-coded "AnythingLLM")
-//    first - so "Browser Appearance -> Title" never reaches the installed app.
-//    Move the route above the static middleware and keep the fork's PWA icon
-//    set. Upstream issue: Mintplex-Labs/anything-llm#6943.
-let manifestIndex = readApp("server/index.js");
-manifestIndex = replaceOnce(
-  manifestIndex,
-  `  app.get("/manifest.json", async function (_, response) {
-    IndexPage.generateManifest(response);
-    return;
-  });
-
-`,
-  "",
-  "server manifest route removal"
-);
-manifestIndex = replaceOnce(
-  manifestIndex,
-  `  app.use(
-    express.static(path.resolve(__dirname, "public"), {`,
-  `  app.get("/manifest.json", async function (_, response) {
-    IndexPage.generateManifest(response);
-    return;
-  });
-
-  app.use(
-    express.static(path.resolve(__dirname, "public"), {`,
-  "server manifest route order"
-);
-writeApp("server/index.js", manifestIndex);
-
+// 6. Emit the UI fork's PWA icon set. Upstream 1.20.0 already serves the
+//    dynamic manifest before express.static (our former route-order patch is
+//    gone), but its generator only lists the favicon, which Chrome does not
+//    accept for installability. Keep the configured name and add the
+//    192/512/maskable PNGs that the fork ships in frontend/public.
 let metaGenerator = readApp("server/utils/boot/MetaGenerator.js");
 metaGenerator = replaceOnce(
   metaGenerator,
@@ -380,4 +204,4 @@ metaGenerator = replaceOnce(
 );
 writeApp("server/utils/boot/MetaGenerator.js", metaGenerator);
 
-console.log("[deepseek-patch] done");
+console.log("[addon-patch] done");

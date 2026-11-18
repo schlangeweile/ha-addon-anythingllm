@@ -11,48 +11,44 @@ It targets devices like the **Hardkernel Odroid N2+** and Raspberry Pi 4/5
 (aarch64) as well as x86-64 machines. The add-on is a thin layer on the
 official multi-arch AnythingLLM image: no external database, no object
 storage, no extra services - SQLite and the LanceDB vector store are
-embedded, and all state persists on the add-on's data volume. The image also
-contains an experimental local patch for DeepSeek: optional Search/Fetch APIs
-(off by default), image attachments for the native provider's vision model
-(`deepseek-flash`), and small CSS overrides for wide markdown tables and the
-workspace-settings layout on phones; see below.
+embedded, and all state persists on the add-on's data volume. DeepSeek web search
+and image attachments are built in since 1.20; the image keeps an optional
+local Fetch patch (off by default) for the agent's scrape skill. See below.
 
-> **Status:** experimental, but verified. The 1.18.0 arm64 image passed a
-> static LSE-atomics scan and ARMv8.0 runtime emulation; the 1.19.0 arm64
-> binaries were re-scanned statically (same `mdpdf` 0.1.10 and Chromium
-> 1088 as 1.18.0, whose QEMU cortex-a53 run proved the outline-atomics
-> fallback). The 1.18.0 amd64 build passed the full smoke test (onboarding,
-> chat, RAG with citations, multi-user isolation, persistence); 1.19.0-ha2
-> passed a boot/API/persistence smoke test, and 1.19.0-ha3 passed the UI
-> smoke (desktop + phone, light + dark) with the new frontend overlay.
-> 1.19.0-ha6 re-ran the full UI smoke on clean containers: the ha5
-> regression set (phantom row 14/14, name toggle 10/10, search 15/15,
-> settings type 6/6) plus chat metrics (9/9), the chat context label (9/9)
-> and the favicon/PWA manifest check. 1.19.0-ha7 adds the mobile sidebar
-> search row and passed a dedicated 16-check smoke (mobile drawer at 390 px,
-> desktop regression at 1440 px, light and dark themes). 1.19.0-ha8 serves the
-> PWA manifest dynamically, so the installed app takes the configured
-> instance name; checked on the built image (manifest header, rename without
-> restart, icon files, ha7 smoke 16/16).
-> Measured RAM: ~290 MiB idle on amd64 (1.19.0-ha1). Final confirmation on
-> real Odroid N2+ hardware is still pending - see the add-on changelog for
-> details.
-> The add-on layer is at **1.19.0-ha8** (consistent cold backups, Open Web
-> UI button, documentation fixes, an optional experimental DeepSeek
-> Search/Fetch patch, native DeepSeek image support for `deepseek-flash`,
-> a CSP, and a UI fork with the thread-list, collapse, line-break, action,
-> wake-lock and activity-sort improvements); the bundled AnythingLLM image
-> is **1.19.0**.
+> **Status:** experimental, but verified on amd64. The 1.20.0-ha1 image
+> passes a 14/14 API smoke test (boot, multi-user bootstrap, provider config,
+> document upload + embedding, streaming chat, automatic thread names, thread
+> activity, PWA manifest and CSP) and a 24/24 UI smoke on desktop 1440x900
+> (dark) and mobile 390x844 (light): context label, token metrics, no phantom
+> thread row, show-older limit, preserved line breaks, always-visible
+> actions, workspace collapse/expand, search dismissal and no page errors.
+> Container recreation keeps the database, runtime `.env`/JWT, workspaces and
+> chats; the DeepSeek Fetch patch was exercised through a mock API.
+> The arm64 base image was re-scanned statically for ARMv8.0 and Node 24.22.2,
+> LanceDB 0.30 (including a real table create), the Prisma query engine,
+> canvas, sharp, onnxruntime, mdpdf and the bundled Chromium 119 run under
+> `qemu-aarch64 -cpu cortex-a53`. Final confirmation on real Odroid N2+
+> hardware is still pending - see the add-on changelog for details.
+> Measured RAM: ~290 MiB idle on amd64 (1.19.0-ha1); the 1.20.0 base adds
+> the same embedded stack, see the changelog.
+> The add-on layer is at **1.20.0-ha1** (AnythingLLM **1.20.0**): upstream
+> now ships the DeepSeek vision and web-search work, the dynamic PWA
+> manifest, the mobile sidebar search, the live thinking timer and the
+> responsive table/settings CSS, so the add-on patch/fork surface is smaller
+> than in 1.19.0. The add-on keeps the optional DeepSeek Fetch patch, the
+> CSP, thread activity/name handling, the PWA icon set and the remaining UI
+> fork improvements (thread limit, collapse, search dismissal, token
+> metrics, context label, line breaks, wake lock).
 
 | Architecture | Status |
 | ------------ | ------ |
-| aarch64 (ARMv8.0) | 1.18.0 statically + emulated verified; 1.19.0 re-scanned statically; on-device test pending |
-| amd64        | 1.18.0 full smoke test; 1.19.0-ha5 full UI smoke passed; 1.19.0-ha6 UI/metrics/PWA smoke passed; 1.19.0-ha7 mobile-search smoke passed; 1.19.0-ha8 PWA-manifest checks passed |
+| aarch64 (ARMv8.0) | 1.20.0 base statically scanned; native modules emulated on cortex-a53; on-device test pending |
+| amd64        | 1.20.0-ha1 API 14/14, UI 24/24 (desktop/mobile), persistence and DeepSeek Fetch smoke passed |
 
 ## Requirements
 
 - Home Assistant OS or Supervised, aarch64 or amd64.
-- ~1.1 GB download and ~4.9 GiB free disk for the image, plus room for
+- ~1.2 GB download and ~4.9 GiB free disk for the image, plus room for
   documents, the vector cache and LanceDB under `/data`.
 - ~0.5 GB RAM (measured ~290 MiB idle on amd64 with 1.19.0-ha1).
   2 GB total is enough for chat and RAG; 4 GB is comfortable. A Raspberry
@@ -70,25 +66,26 @@ workspace-settings layout on phones; see below.
   roles and per-workspace access are managed from the admin dashboard.
 - **Local-first:** only the model endpoints (and optional search providers)
   you configure are contacted.
-- **Experimental DeepSeek support:** optional Search/Fetch APIs, image
-  attachments for `deepseek-flash`, and mobile layout fixes (see below).
+- **DeepSeek:** built-in web search and image attachments for
+  `deepseek-flash` since 1.20; the add-on adds an optional Fetch path for
+  the agent's scrape skill.
 - **UI refinements from the add-on fork:** configurable thread limit with
   "show older", newest-first order by activity, collapsible workspaces,
-  preserved line breaks in your own messages, always-reachable message
-  actions (edit/resend) and an optional screen wake lock. All are
+  dismissible sidebar search, token usage and `model · workspace` context
+  labels, preserved line breaks in your own messages, always-reachable
+  message actions (edit/resend) and an optional screen wake lock. All are
   client-side preferences; no new add-on options.
 
 ### Web search vs. web pages
 
 - The agent's **Web Search** skill uses a web-search (SERP) provider over
-  HTTP (Serper, SerpAPI, Brave, Bing, SearXNG, Tavily, ...). It works in
-  this add-on.
-- **Optional, experimental:** enable `deepseek_search` in the add-on
-  configuration to use DeepSeek's in-house Search API for the agent's Web
-  Search (works with `deepseek-flash`; requires `DEEPSEEK_API_KEY`).
-  `deepseek_fetch` uses DeepSeek's Fetch API for the agent's "Scrape
-  websites" skill instead of the local Chromium. Both are off by default;
-  see the add-on documentation for limits and the upstream status.
+  HTTP (Serper, SerpAPI, Brave, Bing, SearXNG, Tavily, DeepSeek, ...). It
+  works in this add-on. DeepSeek is built in since 1.20: select it under
+  *Agent Skills -> Web Search* and set its own `AGENT_DEEPSEEK_API_KEY`.
+- **Optional, experimental:** enable `deepseek_fetch` in the add-on
+  configuration to let the agent's "Scrape websites" skill fetch single
+  URLs through DeepSeek's Fetch API instead of the local Chromium. It is
+  off by default and reuses `DEEPSEEK_API_KEY`.
 - Browser-based **URL ingestion** and **Website Depth** are intentionally
   not enabled: the bundled Chromium is old and cannot run sandboxed in
   this container. Static HTML pages still work through the collector's
@@ -98,31 +95,17 @@ workspace-settings layout on phones; see below.
 
 ### DeepSeek images
 
-The add-on patches the native DeepSeek provider so chat images are
-forwarded to `deepseek-flash` (normal chat and agent mode). `deepseek-v4-pro`
-remains text-only and still gets images stripped. No add-on option is
-needed - select the native DeepSeek provider with `deepseek-flash` and
-attach JPEG/PNG/GIF/WebP images as usual. PDFs are not accepted by
-DeepSeek's API; they still go through the document/OCR pipeline (upload
-them as workspace documents, or send them through the API with the
-`application/anythingllm-document` MIME type).
+Since AnythingLLM 1.20 the native DeepSeek provider forwards chat images
+itself, so the earlier add-on patch is gone. Select the native DeepSeek
+provider with `deepseek-flash` and attach JPEG/PNG/GIF/WebP images as usual
+(normal chat and agent mode); `deepseek-v4-pro` remains text-only. PDFs are
+not accepted by DeepSeek's API; they still go through the document/OCR
+pipeline (upload them as workspace documents, or send them through the API
+with the `application/anythingllm-document` MIME type).
 
 A complete inventory of the build-time patches, their exact upstream
 anchors and the upstream-bump checklist is in
 [anythingllm/PATCHES.md](anythingllm/PATCHES.md).
-
-### Mobile layout fixes
-
-- On screens up to 600 px, wide markdown tables are horizontally scrollable
-  instead of being clipped, so all columns stay reachable.
-- In the workspace settings (gear icon in a workspace row), the forms use
-  the full content width below 1280 px and the page padding drops to 16 px
-  on phones. Labels and descriptions therefore no longer wrap word by word;
-  at 390 px the chat-settings form grows from 131 px to 358 px. Wider
-  screens keep the upstream 50 % form width.
-
-Both are display-only CSS patches in the add-on image; no add-on option is
-needed.
 
 ## How it works
 
@@ -132,7 +115,7 @@ needed.
 | Storage  | everything persists on the add-on `/data` volume              |
 | Database | embedded SQLite + LanceDB (no external DB)                    |
 | Services | upstream entrypoint runs the app and its document collector    |
-| Config   | web UI, plus two optional DeepSeek toggles                    |
+| Config   | web UI, plus one optional DeepSeek Fetch toggle               |
 
 One container, one exposed port; no Redis, PostgreSQL, Meilisearch or object
 storage is involved. The upstream entrypoint runs the web app and the
@@ -141,8 +124,8 @@ document collector, and the embedded database keeps all state on `/data`.
 ## Configuration
 
 Configuration happens entirely in the web UI (stored in the embedded
-database), apart from the two optional DeepSeek feature toggles in the
-add-on's Configuration tab. See the add-on's **Documentation** tab for
+database), apart from the optional `deepseek_fetch` toggle in the add-on's
+Configuration tab. See the add-on's **Documentation** tab for
 details (RAG setup, providers, web search vs. web pages, the DeepSeek patch,
 backups, troubleshooting).
 
@@ -180,12 +163,11 @@ newer release, bump the `ANYTHINGLLM_VERSION` default in
 supervisor offers the add-on update in the store. CI fails the build if
 those two versions drift apart.
 
-The experimental DeepSeek patches are pinned to AnythingLLM 1.19.0; on an
-upstream bump the patcher must be re-checked (the image build fails if an
-anchor moved). Remove the Search/Fetch patch and its two options once
-upstream supports DeepSeek Search natively; the image patch can be dropped
-once upstream stops treating all DeepSeek models as text-only. The full
-inventory and the bump checklist are in
+The add-on patches are pinned to AnythingLLM 1.20.0; on an upstream bump the
+patcher must be re-checked (the image build fails if an anchor moved). The
+DeepSeek Search and vision patches are gone because upstream implements
+them; only the optional Fetch patch remains. The full inventory and the bump
+checklist are in
 [anythingllm/PATCHES.md](anythingllm/PATCHES.md).
 
 ## Why this exists

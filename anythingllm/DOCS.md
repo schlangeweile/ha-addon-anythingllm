@@ -9,11 +9,9 @@ as DashScope/Ollama, and more).
 ## How it works
 
 The add-on is a single service based on the official multi-arch
-AnythingLLM image, plus an experimental local patch for DeepSeek: the
-optional Search/Fetch APIs (off by default) and image attachments for the
-native provider's `deepseek-flash` vision model. The image also adds small
-CSS overrides that make wide markdown tables scrollable on phones and keep
-the workspace-settings forms readable on narrow screens.
+AnythingLLM image, plus one experimental local patch for DeepSeek: an
+optional Fetch API for the agent's scrape skill (off by default). DeepSeek
+web search and image attachments are built in since AnythingLLM 1.20.
 Inside the container the upstream entrypoint runs the web app and its
 document collector; the embedded SQLite database and the LanceDB vector
 store require no external services.
@@ -23,12 +21,12 @@ store require no external services.
 | Web UI   | port 3001 (mapped to 3001 by default)                       |
 | Storage  | everything persists on the add-on `/data` volume            |
 | Database | embedded SQLite + LanceDB (no external DB)                  |
-| Config   | web UI, plus two optional DeepSeek toggles in the add-on config |
+| Config   | web UI, plus one optional DeepSeek Fetch toggle               |
 
 ## Requirements
 
 - aarch64 (ARMv8.0) or amd64, Home Assistant OS or Supervised.
-- ~1.1 GB download and ~4.9 GiB free disk for the image, plus space for
+- ~1.2 GB download and ~4.9 GiB free disk for the image, plus space for
   documents, the vector cache and LanceDB under `/data`.
 - ~0.5 GB RAM (measured ~290 MiB idle on amd64 with 1.19.0-ha1).
   2 GB total is enough for chat and RAG; 4 GB is comfortable. A Raspberry
@@ -60,9 +58,8 @@ Two different features are easy to confuse:
 
 - **Web Search** (agent skill) uses a web-search (SERP) provider
   configured under Agent Skills, e.g. Serper, SerpAPI, Brave, Bing,
-  SearXNG, Tavily or DuckDuckGo. This is a plain HTTP API call and works
-  in the add-on. Alternatively, the optional `deepseek_search` toggle
-  uses DeepSeek's own Search API (see below).
+  SearXNG, Tavily, DuckDuckGo or - since AnythingLLM 1.20 - DeepSeek.
+  This is a plain HTTP API call and works in the add-on.
 - **Scrape websites / URL ingestion** renders the page with the Chromium
   bundled in the upstream image. This add-on intentionally does not
   enable Chromium: the bundled browser is from the Chrome 119 era (late
@@ -77,119 +74,67 @@ The reduced feature set is deliberate: the alternative would be running an
 outdated Chromium without a sandbox as root. The SERP-based Web Search
 skill, model providers with server-side search (for example Perplexity or
 OpenRouter `:online` models) and search MCP servers are unaffected. The
-optional DeepSeek patch below is the one exception: it uses DeepSeek's
-HTTP APIs, not the local browser. If you don't need browser-based URL
-scraping, disable the built-in "Scrape websites" skill (unless you use
-`deepseek_fetch`).
+optional DeepSeek Fetch patch below uses DeepSeek's HTTP API, not the local
+browser. If you don't need browser-based URL scraping, disable the built-in
+"Scrape websites" skill (unless you use `deepseek_fetch`).
 
-### Optional: DeepSeek Search and Fetch (experimental local patch)
+### DeepSeek web search (built in since 1.20)
 
-Upstream AnythingLLM 1.19.0 has no DeepSeek web-search provider, so this
-add-on image contains a small local patch (the image is therefore no
-longer purely "thin" for this feature). Both toggles are **off by
-default** and live in the add-on's **Configuration** tab:
+AnythingLLM 1.20 added DeepSeek as an agent web-search provider. Select
+**DeepSeek** under *Agent Skills -> Web Search* and enter a DeepSeek API key
+in that provider's settings (the key is stored as
+`AGENT_DEEPSEEK_API_KEY`, separately from the LLM key). It works with
+`deepseek-flash` and any other model, in agent mode. DeepSeek bills the
+Search API per successful request (see their pricing page); search queries
+are sent to DeepSeek.
 
-- `deepseek_search` - the agent's **Web Search** skill uses DeepSeek's
-  in-house Search API instead of the built-in SERP provider. It works
-  with `deepseek-flash` (the Search API is model-independent), but only
-  in agent mode.
-- `deepseek_fetch` - the agent's **"Scrape websites"** skill fetches a
-  single URL through DeepSeek's Fetch API (Markdown) instead of the local
-  Chromium. This is a per-URL fetch, not a crawler. The workspace's
-  "Add URL" data source and "Website Depth" still use the collector, and
-  if the Fetch call fails the collector path is tried.
+### Optional: DeepSeek Fetch (experimental local patch)
+
+AnythingLLM 1.20 has no DeepSeek Fetch path, so the add-on image contains a
+small local patch for the agent's **"Scrape websites"** skill. The toggle
+`deepseek_fetch` is **off by default** and lives in the add-on's
+**Configuration** tab. When enabled, the skill fetches a single URL through
+DeepSeek's Fetch API (Markdown) instead of the local Chromium. This is a
+per-URL fetch, not a crawler. The workspace's "Add URL" data source and
+"Website Depth" still use the collector, and if the Fetch call fails the
+collector path is tried.
 
 Prerequisites and notes:
 
 1. Configure DeepSeek as an LLM provider (at least once) so
    `DEEPSEEK_API_KEY` is written to `/data/.env`; use `deepseek-flash` or
-   `deepseek-v4-pro` as the model. The Search/Fetch calls reuse this key.
+   `deepseek-v4-pro` as the model. The Fetch calls reuse this key.
    For advanced setups the key can also be added to `/data/.env` manually.
-2. Enable the desired toggles, save the add-on configuration, and restart
-   the add-on if the toggles do not take effect immediately.
-3. Enable the relevant agent skill (Web Search and/or Scrape websites).
-   While `deepseek_search` is enabled, the built-in provider dropdown
-   (which may still show You.com) is bypassed; disable the toggle to use
-   the built-in provider again.
-4. Agent mode only: normal chat without the agent has no DeepSeek search.
+2. Enable `deepseek_fetch`, save the add-on configuration, and restart the
+   add-on if the toggle does not take effect immediately.
+3. Enable the agent's "Scrape websites" skill.
+4. Agent mode only: normal chat without the agent has no DeepSeek Fetch.
 5. Billing and privacy: DeepSeek charges **$0.75 per 1,000 successful
-   Search/Fetch requests** (plus model tokens); search queries and fetched
-   URLs are sent to DeepSeek.
+   Fetch requests** (plus model tokens); fetched URLs are sent to DeepSeek.
 
-This is a local stopgap until upstream adds a DeepSeek search provider.
 The patch script fails the image build if the pinned upstream version or
-one of its anchors changes; when upstream supports DeepSeek Search
-natively, the Search/Fetch patch and its two options can be removed.
+one of its anchors changes; when upstream supports DeepSeek Fetch natively,
+the patch and its option can be removed.
 
-### DeepSeek images (native provider, experimental patch)
+### DeepSeek images
 
-Upstream AnythingLLM 1.19.0 hard-codes the native DeepSeek provider as
-text-only and silently drops chat images. That is out of date: DeepSeek's
-`deepseek-flash` accepts JPEG/PNG/GIF/WebP images as OpenAI-compatible
-`image_url` blocks (base64, external URL, or Files API). The add-on patch
-therefore forwards image attachments in both normal chat and agent mode
-for:
+Since AnythingLLM 1.20 the native DeepSeek provider forwards image
+attachments itself (the earlier add-on patch is gone). Select the native
+**DeepSeek** provider with `deepseek-flash` and attach the image in the
+chat; this also works in agent mode. `deepseek-v4-pro` is text-only.
 
-- `deepseek-flash`
-- `deepseek-v4-flash-vision-exp` (legacy alias, served by the latest Flash
-  model)
-
-`deepseek-v4-pro` and the other text-only models keep the old behavior -
-images are stripped, so the request does not fail. No add-on option is
-needed: select the native **DeepSeek** provider and `deepseek-flash`, then
-attach the image in the chat. This also works in agent mode.
-
-PDFs are not images: DeepSeek's API accepts text and images, not PDFs
-(the Files API is image-only as well). Attach PDFs as workspace documents
-(the UI uploads non-image files this way) or send them through the API
-with `mime: application/anythingllm-document`; the collector extracts the
-text first. See "Knowledge base (RAG)".
-
-The image patch is pinned to 1.19.0 as well and fails the image build if
-an anchor changes; it can be removed once upstream stops treating all
-DeepSeek models as text-only.
-
-### Tables on small screens
-
-Upstream 1.19.0 clips wide markdown tables on narrow screens because the
-table CSS uses `width: 100%` and `overflow: hidden` without a scroll
-wrapper. The UI fork ships a small CSS rule: below 600 px, `.markdown table`
-becomes a horizontal scroll container, so all columns stay reachable by
-swiping. This is display-only, needs no add-on option, and does not change
-the model output. Wider screens keep the normal table layout.
-
-### Workspace settings on small screens
-
-The workspace settings (gear icon in a workspace row) use the same
-layout in upstream 1.19.0 as on a wide desktop: every form is pinned to
-`w-1/2` and the page keeps a fixed 64 px horizontal padding. On a phone
-that leaves a very narrow form column, so labels and descriptions wrap
-word by word and the page becomes much longer than necessary.
-
-The UI fork ships a CSS rule. Below the Tailwind xl breakpoint (1280 px) the
-forms use the full content width; below md (768 px) the page padding drops to
-16 px as well. At a 390 px phone width this grows the chat-settings form from
-about 131 px to 358 px and reduces the height of the description block from
-144 px to 48 px. Screens at 1280 px and wider keep the upstream 50 % form
-width. This is display-only, needs no add-on option, and does not change any
-saved setting.
-
-Upstream `master` still had the fixed `w-1/2` form width when this was
-checked (2026-10-29); the override can be removed once upstream makes the
-settings layout responsive.
-
-### Build-time patch inventory
-
-A maintainer-facing inventory of all build-time patches, their exact
-upstream anchors and the upstream-bump checklist is in
-[PATCHES.md](https://github.com/schlangeweile/ha-addon-anythingllm/blob/master/anythingllm/PATCHES.md).
+PDFs are not images: DeepSeek's API accepts text and images, not PDFs.
+Attach PDFs as workspace documents (the UI uploads non-image files this
+way) or send them through the API with
+`mime: application/anythingllm-document`; the collector extracts the text
+first. See "Knowledge base (RAG)".
 
 ## UI differences from upstream (UI fork)
 
 Since 1.19.0-ha3 the frontend is built from the public UI fork
 [`schlangeweile/anything-llm`](https://github.com/schlangeweile/anything-llm),
-branch `ha-ui/v1.19.0` (upstream `v1.19.0` plus the UI commits), and copied
-over the upstream image's `server/public`. Server, collector and the
+branch `ha-ui/v1.20.0` (upstream `v1.20.0` plus the remaining UI commits), and
+copied over the upstream image's `server/public`. Server, collector and the
 entrypoint remain upstream. This section lists the user-visible differences;
 all are client-side preferences stored in the browser's `localStorage`,
 except the activity ordering, which the server also persists.
@@ -235,15 +180,9 @@ field empties it. Focusing or clicking the field shows the last results
 again. Result rows and workspace/thread labels truncate by the available
 width, not by a fixed character count.
 
-On phones the same row is part of the sidebar drawer: search field plus the
-compact **+** button for a new workspace, where upstream only offers the
-full-width New Workspace button. Results open directly below the input
-inside the drawer. Upstream does not have this yet
-([Mintplex-Labs/anything-llm#6945](https://github.com/Mintplex-Labs/anything-llm/issues/6945)),
-so it is a UI fork difference. The maintainers accepted it as a
-frontend-only change on 2026-11-02 (swap the drawer's New Workspace button for
-the existing `SearchBox`, then fix where its result overlay opens) - the fork
-change drops out at the next rebase once that ships.
+On phones the sidebar drawer has the same search row since 1.20; that part
+is upstream now. The dismissal, clear-button and width behaviour above are
+still add-on-side.
 
 ### Settings menu
 
@@ -281,16 +220,11 @@ must be removed and re-added to pick up the new icon.
 ### App name in the installed PWA
 
 The name in the browser's install prompt and on the installed app comes from
-the web manifest. This image serves the manifest dynamically (server patch
-#10) and takes the name from *Settings → Customization → Browser Appearance →
-Title*, falling back to *Customization → Name* and then "AnythingLLM".
-Upstream answers `/manifest.json` from a static file with a hard-coded
-"AnythingLLM", so renaming the instance only changed the tab title there
-([Mintplex-Labs/anything-llm#6943](https://github.com/Mintplex-Labs/anything-llm/issues/6943)).
-Upstream accepted the fix on 2026-11-02: the manifest route has to be
-registered above `express.static`, which is exactly what server patch #10
-already does. When that ships, the route-order part of the patch can go; the
-generator override stays, because the fork ships 192/512/maskable PWA icons
+the web manifest. AnythingLLM 1.20 serves the manifest dynamically and takes
+the name from *Settings → Customization → Browser Appearance → Title*,
+falling back to *Customization → Name* and then "AnythingLLM"; the former
+route-order patch is gone. The add-on still overrides the generator's icon
+list (server patch #6), because the fork ships 192/512/maskable PWA icons
 while upstream's generator emits a single favicon entry. An already installed
 PWA may keep its old name; remove it and add it again to pick up the new one.
 
@@ -311,20 +245,14 @@ memory may already contain the old exchange.
 
 ### Agent status block
 
-When an agent session ends, upstream appends a synthetic "Agent session
-complete." status to the live chat history. It is never persisted, so it only
-ever appeared as a stray "Thoughts" row below the finished answer (and, being
-the last history entry, it also hid the answer's regenerate action) until a
-reload rebuilt the history from the server. The add-on no longer records that
-status. The row's "agent done" icon is the brain glyph now: upstream used a
-1805x1805 PNG in a 20 px slot, and its alt text ("Agent complete") leaked into
-the row as "Ag" whenever the image loaded slowly or failed. Finished-chain
-labels are localized ("Thought for 12.3s" / "Nachgedacht für 12.3s"). The
-status-append half is upstream issue
-[Mintplex-Labs/anything-llm#6959](https://github.com/Mintplex-Labs/anything-llm/issues/6959),
-which a maintainer has taken; the icon and label changes stay add-on-side until
-upstream covers them. The same code ships in upstream v1.19.0, so all of this is
-a UI fork difference.
+Upstream 1.20 no longer appends the synthetic "Agent session complete."
+status that used to leave a stray "Thoughts" row below a finished answer
+([Mintplex-Labs/anything-llm#6959](https://github.com/Mintplex-Labs/anything-llm/issues/6959));
+that half of the add-on fix is gone. The UI fork still uses the brain glyph
+for a finished activity chain instead of the 1805x1805 "agent done" PNG,
+whose alt text ("Agent complete") leaked into the row as "Ag" when it loaded
+slowly or failed, and it localizes the finished-chain label ("Thought for
+12.3s" / "Nachgedacht für 12.3s").
 
 ### Keep the screen awake
 
@@ -345,12 +273,6 @@ app), `data:`/`blob:` images and media, same-origin WebSockets and
 allowed. This closes the JWT-in-localStorage XSS gap; if a future UI feature
 uses another origin or an eval-based library, the policy must be extended
 deliberately.
-
-### Tables and workspace settings on small screens
-
-These two display fixes now ship in the UI fork's
-`frontend/src/index.css` instead of being appended by the server patch layer.
-See the two subsections above for the exact behaviour.
 
 ## Where your data lives
 
@@ -378,8 +300,9 @@ Dockerfile.
 4. Optional: configure **Embedding Preferences** for the knowledge base
    (RAG). Without embeddings, plain chat still works.
 5. Optional: configure DeepSeek as an LLM provider once, then enable
-   `deepseek_search` and/or `deepseek_fetch` in the add-on's
-   **Configuration** tab (see "Optional: DeepSeek Search and Fetch").
+   `deepseek_fetch` in the add-on's **Configuration** tab for the agent's
+   scrape skill. DeepSeek web search is built in: select DeepSeek under
+   *Agent Skills -> Web Search* and set its `AGENT_DEEPSEEK_API_KEY` there.
 
 ## Multiple users (household setup)
 
@@ -405,7 +328,7 @@ agent's "Scrape websites" skill, not to workspace URL ingestion or
 
 ## Local models / built-in LLM
 
-The add-on supports remote endpoints only in practice. Upstream 1.19.0
+The add-on supports remote endpoints only in practice. Upstream 1.20.0
 bundles an optional built-in local LLM engine (Lemonade/llama.cpp) for
 Docker, but it is off by default and this add-on does not enable it. It
 downloads large model runtimes at first use and is not suited for
@@ -429,8 +352,8 @@ instead, or a separate Ollama server on capable hardware.
   this indicates a binary that requires ARMv8.2+ (LSE) CPU features on
   an ARMv8.0 device (e.g. Odroid N2+ or Raspberry Pi 4/5; a Raspberry
   Pi 3 is instruction-set compatible but has too little RAM). The arm64
-  image was re-scanned statically for 1.19.0 and runtime-tested on an
-  ARMv8.0-emulated CPU for 1.18.0 (same mdpdf/Chromium binaries), so this
+  image was re-scanned statically for 1.20.0 and the native modules were
+  runtime-tested on an ARMv8.0-emulated CPU, so this
   should not happen - if it does, please open an issue in the add-on
   repository with the log excerpt.
 - **Adding a URL fails / log shows `Could not find Chrome`, `No usable
@@ -441,27 +364,18 @@ instead, or a separate Ollama server on capable hardware.
   enabled, the agent's "Scrape websites" skill uses DeepSeek Fetch for
   single URLs instead; the workspace URL ingestion and Website Depth
   still use the collector and show the Puppeteer error.
-- **DeepSeek Search/Fetch is not used**: enable the matching toggle in the
-  add-on's Configuration tab, make sure `DEEPSEEK_API_KEY` is in the
-  runtime `.env` (configure DeepSeek as an LLM provider once; restart the
-  add-on if the key was just added), and use the agent mode. While
-  `deepseek_search` is enabled, the built-in Web Search provider dropdown
-  is bypassed.
+- **DeepSeek Fetch is not used**: enable `deepseek_fetch` in the add-on's
+  Configuration tab, make sure `DEEPSEEK_API_KEY` is in the runtime `.env`
+  (configure DeepSeek as an LLM provider once; restart the add-on if the key
+  was just added), and use agent mode.
+- **DeepSeek web search is not used**: select **DeepSeek** under *Agent
+  Skills -> Web Search* and enter the key in that provider's settings (stored
+  as `AGENT_DEEPSEEK_API_KEY`). This is separate from the DeepSeek LLM key.
 - **DeepSeek still says it received no image**: make sure the workspace
   uses the native **DeepSeek** provider with `deepseek-flash` (not
   `deepseek-v4-pro`, which is text-only), attach a JPEG/PNG/GIF/WebP image
-  (not a PDF), and restart the add-on after the update so the patched
-  provider is loaded. PDFs go through the document/OCR path, not the
-  vision path.
-- **Wide table is cut off on the phone**: make sure the add-on runs
-  **1.19.0-ha3** or newer and hard-refresh the web UI. Below 600 px the
-  markdown table is horizontally scrollable; on wider screens the normal
-  table layout applies. This only affects markdown tables, not PDFs or
-  code blocks.
-- **Workspace settings are squeezed on a phone or narrow window**: make
-  sure the add-on runs **1.19.0-ha3** or newer and hard-refresh the web UI.
-  Below 1280 px the settings forms use the full content width and below
-  768 px the page padding is 16 px; desktop keeps the upstream 50 % width.
+  (not a PDF), and hard-refresh the page so the 1.20 frontend is loaded.
+  PDFs go through the document/OCR path, not the vision path.
 - **Cannot write to /data**: the add-on runs the app as root inside the
   container on purpose (the persistent volume is root-owned); if you
   changed the image, keep the `USER root` directive.

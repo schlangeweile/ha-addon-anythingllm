@@ -1,5 +1,67 @@
 # Changelog
 
+## 1.20.0-ha1
+
+- Base image bumped to AnythingLLM **1.20.0**. Upstream took over most of the
+  add-on's former workarounds, so the patch layer and the UI fork are
+  smaller than in 1.19.0:
+  - **DeepSeek vision (#6910) and DeepSeek agent web search (#6911) are
+    native.** The `deepseek_search` add-on option is removed; select
+    **DeepSeek** under *Agent Skills -> Web Search* and set its
+    `AGENT_DEEPSEEK_API_KEY` there. It is no longer silently forced with the
+    LLM's `DEEPSEEK_API_KEY`. Image attachments for `deepseek-flash` work
+    without a patch.
+  - **Dynamic PWA manifest (#6944), mobile drawer search (#7007), Agent
+    Skills settings on mobile (#7089), the live thinking timer (#7091), the
+    agent close-notice cleanup (#6966), responsive workspace settings
+    (#6891) and the markdown-table scroll wrapper (#6859) are upstream.**
+    The matching server patch hunks and fork commits were dropped instead of
+    keeping two solutions.
+- Still add-on-side: the optional DeepSeek Fetch path (`deepseek_fetch`,
+  off by default), the Content-Security-Policy, the thread-activity
+  timestamp (adapted from `WorkspaceChats.new` to `upsert`), 64-character
+  automatic thread names, the PWA icon-set override and the remaining UI
+  fork changes: thread limit/show-older, workspace collapse, no phantom
+  New Thread row, dismissible search, width truncation, settings-menu type,
+  token usage in the metrics line, `model · workspace` context label,
+  preserved line breaks, always-visible message actions, wake lock,
+  activity sort and the agent-chain icon/label.
+- Runtime changes that come with the base image: Node 18 -> 24 LTS,
+  LanceDB 0.15 -> 0.30, new MiniMax image generator, browser-extension and
+  MCP improvements. Chromium stays at 119, so the web-scraping limitation
+  (Variant B) is unchanged.
+- **Upgrade note:** remove `deepseek_search` from the add-on configuration;
+  the option no longer exists. Existing database, vectors, documents and
+  settings survive, and Prisma migrations run on first start. DeepSeek
+  search is configured in the web UI from now on.
+- No storage-path or API-shape changes; the three Dockerfile symlinks
+  (SQLite, runtime `.env`, collector hotdir) were re-checked against 1.20.0.
+- Verified on amd64:
+  - image build and patch anchors; API smoke **14/14**: boot, multi-user
+    bootstrap, provider configuration, document upload + embedding,
+    streaming chat against a mock OpenAI server, automatic thread name
+    >22 characters (65 stored), thread `lastUpdatedAt` bump, PWA manifest
+    with 192/512 icons and `Cache-Control: no-store`, CSP header.
+  - UI smoke **24/24** on desktop 1440x900/dark and mobile 390x844/light:
+    context label, token usage, no phantom row, show-older limit,
+    preserved line breaks, actions at 60 % opacity, chevron collapse and
+    name expand, search open/Escape, no page or CSP errors.
+  - container recreation (new container, same `/data`) kept the SQLite DB,
+    the runtime `.env` (old JWT still valid), the workspace and the chat
+    history.
+  - DeepSeek Fetch against a mock API with `/data/options.json` returned
+    Markdown; the collector fallback remains for failures.
+- ARMv8.0 (static scan of the 1.20.0 arm64 base + QEMU cortex-a53):
+  `node` 24.22.2, LanceDB 0.30 gnu (loaded and created a real table),
+  the Prisma query engine, canvas, sharp and onnxruntime are **free of LSE
+  opcodes**. `mdpdf` and the Chromium helper libraries contain LSE only as
+  outline-atomics dispatch (`cbz`-guarded LSE/LL-SC pairs); mdpdf loads,
+  Chromium 119 prints its version and LanceDB works under
+  `qemu-aarch64 -cpu cortex-a53`. The arm64 add-on image itself could not be
+  built on this host (Docker has no working QEMU binfmt); the add-on layer
+  adds no native binaries, and CI builds aarch64. On-device Odroid N2+
+  testing is still pending.
+
 ## 1.19.0-ha10
 
 - Settings > Agent Skills: the sliders button (max tool calls, intelligent
