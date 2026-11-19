@@ -9,9 +9,10 @@ as DashScope/Ollama, and more).
 ## How it works
 
 The add-on is a single service based on the official multi-arch
-AnythingLLM image, plus one experimental local patch for DeepSeek: an
-optional Fetch API for the agent's scrape skill (off by default). DeepSeek
-web search and image attachments are built in since AnythingLLM 1.20.
+AnythingLLM image, plus two experimental DeepSeek patches: an optional
+server-side search/URL-reading mode for normal chat and an optional Fetch API
+for the agent's scrape skill (both off by default). DeepSeek web search in
+agent mode and image attachments are built in since AnythingLLM 1.20.
 Inside the container the upstream entrypoint runs the web app and its
 document collector; the embedded SQLite database and the LanceDB vector
 store require no external services.
@@ -21,7 +22,7 @@ store require no external services.
 | Web UI   | port 3001 (mapped to 3001 by default)                       |
 | Storage  | everything persists on the add-on `/data` volume            |
 | Database | embedded SQLite + LanceDB (no external DB)                  |
-| Config   | web UI, plus one optional DeepSeek Fetch toggle               |
+| Config   | web UI, plus two optional DeepSeek toggles                    |
 
 ## Requirements
 
@@ -78,7 +79,7 @@ optional DeepSeek Fetch patch below uses DeepSeek's HTTP API, not the local
 browser. If you don't need browser-based URL scraping, disable the built-in
 "Scrape websites" skill (unless you use `deepseek_fetch`).
 
-### DeepSeek web search (built in since 1.20)
+### DeepSeek web search in agent mode (built in since 1.20)
 
 AnythingLLM 1.20 added DeepSeek as an agent web-search provider. Select
 **DeepSeek** under *Agent Skills -> Web Search* and enter a DeepSeek API key
@@ -87,6 +88,33 @@ in that provider's settings (the key is stored as
 `deepseek-flash` and any other model, in agent mode. DeepSeek bills the
 Search API per successful request (see their pricing page); search queries
 are sent to DeepSeek.
+
+### Free DeepSeek server-side web tools in normal chat (experimental)
+
+DeepSeek's [web tools](https://api-docs.deepseek.com/guides/web_tools) let the
+model search the web and read URLs itself; those server-side searches are not
+billed, only model tokens. DeepSeek does **not** allow these tools together
+with function tools, so this add-on uses them only in the **normal chat**,
+never in the agent.
+
+- Enable **`deepseek_server_tools`** in the add-on's Configuration tab.
+- The workspace must use a **DeepSeek flash model** (`deepseek-flash` or a
+  dated flash alias) with the native DeepSeek provider.
+- The request then declares `deepseek_web_search` and `deepseek_read_url`.
+  The model decides whether to search or read links; the answer cites pages
+  under **Sources**. Image attachments still work in the same message.
+- The agent keeps its existing Search/Fetch provider (and the optional
+  `deepseek_fetch` patch); the agent path is not changed by this option.
+- `deepseek_read_url` reads URLs in the **last** user message. AnythingLLM
+  does not replay DeepSeek's encrypted `signature` in later turns yet, so a
+  follow-up about that page may not see its content; use workspace documents
+  for persistent page context.
+- If a dated model name is rejected by the API, select `deepseek-flash` (the
+  alias to the current Flash model).
+
+This mode is independent of the agent Search/Fetch provider. You can keep
+DeepSeek as the agent provider, or ignore agent mode entirely and use normal
+chat with server-side search.
 
 ### Optional: DeepSeek Fetch (experimental local patch)
 
@@ -368,9 +396,15 @@ instead, or a separate Ollama server on capable hardware.
   Configuration tab, make sure `DEEPSEEK_API_KEY` is in the runtime `.env`
   (configure DeepSeek as an LLM provider once; restart the add-on if the key
   was just added), and use agent mode.
-- **DeepSeek web search is not used**: select **DeepSeek** under *Agent
-  Skills -> Web Search* and enter the key in that provider's settings (stored
-  as `AGENT_DEEPSEEK_API_KEY`). This is separate from the DeepSeek LLM key.
+- **DeepSeek web search is not used**: in agent mode, select **DeepSeek**
+  under *Agent Skills -> Web Search* and enter the key in that provider's
+  settings (stored as `AGENT_DEEPSEEK_API_KEY`). This is separate from the
+  DeepSeek LLM key. In normal chat, enable `deepseek_server_tools` and use a
+  DeepSeek flash model; the option does nothing in agent mode or for
+  non-flash models.
+- **DeepSeek server tools are rejected**: use the model alias
+  `deepseek-flash` instead of a dated snapshot, or disable
+  `deepseek_server_tools` and keep the agent's Search/Fetch provider.
 - **DeepSeek still says it received no image**: make sure the workspace
   uses the native **DeepSeek** provider with `deepseek-flash` (not
   `deepseek-v4-pro`, which is text-only), attach a JPEG/PNG/GIF/WebP image

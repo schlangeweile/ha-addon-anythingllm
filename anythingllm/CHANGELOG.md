@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.20.0-ha2
+
+- New experimental add-on option **`deepseek_server_tools`** for the normal
+  chat (not the agent): when enabled and the workspace uses a DeepSeek flash
+  model, the chat request declares DeepSeek's free server-side web tools
+  (`deepseek_web_search`, `deepseek_read_url`). DeepSeek runs the search/fetch
+  itself, so only model tokens are billed - no Search/Fetch API request. The
+  returned `annotations`/`server_tool_calls` are mapped to AnythingLLM
+  sources, so the answer shows a **Sources** button with the cited pages.
+- Deliberately normal-chat only: DeepSeek does not allow these server tools
+  together with function tools, so the agent keeps its existing Search/Fetch
+  provider (and `deepseek_fetch`). The agent path is unchanged.
+- Works alongside the native DeepSeek image support: a message can contain an
+  image and use the server-side web search in the same request.
+- Model requirement: a DeepSeek flash model (`deepseek-flash` or a dated
+  flash alias). Other models silently skip the tools. If a dated model rejects
+  the tools, select `deepseek-flash` (the alias to the current Flash model).
+- `deepseek_read_url` reads URLs in the last user message; AnythingLLM does
+  not replay the encrypted `signature` in later turns yet, so follow-up
+  questions about that page may not see its content. Use workspace documents
+  for persistent page context.
+- Verified on amd64 with a mock DeepSeek HTTPS API: the request contains the
+  two server tools only when the option is on, the image is still sent, the
+  source appears in the streaming response and in the saved chat, and the UI
+  shows it under **Sources**. With the option off no `tools` field is sent.
+  The real DeepSeek API was not available in this environment; the dated
+  model names still need a real-key check.
+
 ## 1.20.0-ha1
 
 - Base image bumped to AnythingLLM **1.20.0**. Upstream took over most of the

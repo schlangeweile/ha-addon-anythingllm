@@ -1,4 +1,4 @@
-# Add-on patches (AnythingLLM 1.20.0-ha1)
+# Add-on patches (AnythingLLM 1.20.0-ha2)
 
 This add-on is a thin layer on the pinned upstream image
 `mintplexlabs/anythingllm:1.20.0`, plus the build-time patch layer in
@@ -12,8 +12,9 @@ The authoritative implementation of the server patches is
 time, not at runtime. Frontend changes do **not** go through this layer; they
 live in the UI fork (see "UI fork overlay" below).
 
-The anchors were re-checked against AnythingLLM 1.20.0. That release took
-over several former add-on patches: DeepSeek vision (#6910), the DeepSeek
+The anchors were re-checked against AnythingLLM 1.20.0. 1.20.0-ha2 adds the
+normal-chat DeepSeek server-tools patch (#3); the agent path is unchanged.
+Upstream 1.20.0 took over several former add-on patches: DeepSeek vision (#6910), the DeepSeek
 agent search provider (#6911), the dynamic PWA manifest route (#6944), the
 mobile drawer search (#7007), the Agent Skills settings button on mobile
 (#7089), the live thinking timer (#7091), the agent close-notice cleanup
@@ -27,14 +28,17 @@ patch layer is smaller than in 1.19.0.
 |---|-------|-----------------|---------|---------------|-------------|
 | 1 | [`patches/deepseek.js`](patches/deepseek.js) | `server/utils/agents/aibitat/plugins/helpers/deepseek.js` (new file) | DeepSeek Fetch client | `deepseek_fetch` | Upstream has native Fetch/scrape support |
 | 2 | [`snippets/collector-fetch.js`](patches/snippets/collector-fetch.js) | `server/utils/collectorApi/index.js` | DeepSeek Fetch for the agent's "Scrape websites" skill | `deepseek_fetch` | Same as #1 |
-| 3 | [`snippets/security-headers.js`](patches/snippets/security-headers.js) | `server/index.js` | Content-Security-Policy for the production SPA | none | Upstream ships a suitable CSP |
-| 4 | [`snippets/thread-activity.js`](patches/snippets/thread-activity.js) | `server/models/workspaceChats.js` | Bump the thread's `lastUpdatedAt` when a chat is saved | none | Upstream bumps thread activity itself |
-| 5 | Inline anchors in `apply.js` | `server/models/workspaceThread.js`, `server/endpoints/workspaces.js` | Store auto-generated thread names up to 64 characters instead of 22, so the UI truncates by width | none | Upstream stores longer names |
-| 6 | Inline anchor in `apply.js`, [`snippets/manifest.js`](patches/snippets/manifest.js) | `server/utils/boot/MetaGenerator.js` | Emit the fork's 192/512/maskable PWA icons in the dynamic manifest | none | Upstream's generator emits a full icon set |
+| 3 | [`snippets/deepseek-server-tools-*.js`](patches/snippets/) plus inline anchors | `server/utils/AiProviders/deepseek/index.js` | DeepSeek's free server-side `deepseek_web_search`/`deepseek_read_url` tools in **normal chat**, with sources mapping | `deepseek_server_tools` | Upstream supports DeepSeek server tools in chat |
+| 4 | [`snippets/security-headers.js`](patches/snippets/security-headers.js) | `server/index.js` | Content-Security-Policy for the production SPA | none | Upstream ships a suitable CSP |
+| 5 | [`snippets/thread-activity.js`](patches/snippets/thread-activity.js) | `server/models/workspaceChats.js` | Bump the thread's `lastUpdatedAt` when a chat is saved | none | Upstream bumps thread activity itself |
+| 6 | Inline anchors in `apply.js` | `server/models/workspaceThread.js`, `server/endpoints/workspaces.js` | Store auto-generated thread names up to 64 characters instead of 22, so the UI truncates by width | none | Upstream stores longer names |
+| 7 | Inline anchor in `apply.js`, [`snippets/manifest.js`](patches/snippets/manifest.js) | `server/utils/boot/MetaGenerator.js` | Emit the fork's 192/512/maskable PWA icons in the dynamic manifest | none | Upstream's generator emits a full icon set |
 
-The image patch (#1/#2) is the only option-controlled behaviour. The CSP
-(#3), thread-activity (#4), thread-name (#5) and manifest-icon (#6) patches
-are always applied.
+The Fetch patch (#1/#2) and the server-tools patch (#3) are option-controlled.
+The server-tools patch only touches the normal-chat provider; the agent uses
+`aibitat/providers/deepseek.js` and is unchanged. The CSP (#4),
+thread-activity (#5), thread-name (#6) and manifest-icon (#7) patches are
+always applied.
 
 ### UI fork overlay
 
@@ -64,7 +68,7 @@ UI changes carried in the fork as of 1.20.0-ha1:
 | Thread list (R1–R4) | New `ThreadList` component: configurable limit with "Show older threads", newest-first order (by activity), no connector lines, New Thread at the top |
 | Phantom row (ha5) | Upstream's virtual `*New Thread` row removed: it duplicated the New Thread button and appeared on every bare workspace route (after deleting the active thread, on a new workspace) |
 | Search dismissal (ha5) | Results close on Escape, outside click and navigation; always-visible clear button; reopen on focus/click. Upstream 1.20's SearchBox only has the results/sequence logic |
-| Width truncation (ha5) | Full-width search result rows and flexible workspace names; auto thread names up to 64 chars (patch #5) instead of 22 |
+| Width truncation (ha5) | Full-width search result rows and flexible workspace names; auto thread names up to 64 chars (patch #6) instead of 22 |
 | Settings type (ha5) | Sub-items 14 px instead of 12 px; main entries semibold at 14 px |
 | Chat metrics (ha6) | Token usage in the per-message metrics line; UI preference to pin the line, also on mobile |
 | Chat context label (ha6) | Desktop picker and mobile bar show `model · workspace` |
@@ -73,7 +77,7 @@ UI changes carried in the fork as of 1.20.0-ha1:
 | Line breaks (R7A) | A second markdown-it instance with `breaks: true` for user messages only; keeps upstream's table scroll renderers on both instances |
 | Message actions (R8A) | Actions are always visible at `opacity-60`, fully opaque on hover/focus |
 | Wake lock (R9A) | Opt-in Screen Wake Lock while a response streams, off by default, secure-context only |
-| Activity sort (R5 client) | `THREAD_ACTIVITY_EVENT` from both composer paths; local reorder plus the server bump from patch #4 |
+| Activity sort (R5 client) | `THREAD_ACTIVITY_EVENT` from both composer paths; local reorder plus the server bump from patch #5 |
 | Agent chain icon/label (ha9) | Brain glyph instead of the `agent-static.png` bitmap and a localized finished-chain label |
 
 The UI fork is rebased per upstream tag (never merged). See
@@ -92,8 +96,8 @@ Most edits use `replaceOnce(content, needle, replacement, label)`:
 - the labels below are the third argument passed to `replaceOnce`.
 
 The new helper (#1) is a whole-file copy; everything else uses
-`replaceOnce`. The CSP (#3) is a middleware insertion and the thread-activity
-patch (#4) runs after the chat upsert; both are called out separately below.
+`replaceOnce`. The CSP (#4) is a middleware insertion and the thread-activity
+patch (#5) runs after the chat upsert; both are called out separately below.
 
 ### 1. New helper file
 
@@ -123,7 +127,40 @@ patch (#4) runs after the chat upsert; both are called out separately below.
     which runs only when `deepseek_fetch` is true and `DEEPSEEK_API_KEY` is
     set; on failure the collector path continues.
 
-### 3. `server/index.js` (CSP)
+### 3. `AiProviders/deepseek/index.js` (server tools, normal chat)
+
+Only the normal-chat provider is patched; the agent's
+`aibitat/providers/deepseek.js` is separate and keeps its Search/Fetch
+provider (DeepSeek does not allow server tools together with function tools).
+
+- Label `deepseek server-tools import`
+  - Anchor: `} = require("../../helpers/reasoningEffort");`
+  - Adds `getAddonOption` from the installed Fetch helper.
+
+- Label `deepseek server-tools methods`
+  - Anchor: the JSDoc above `#generateContent`.
+  - Adds `#serverToolsEnabled`, `#serverToolsRequest`, `#serverToolSources`
+    and the streaming observer. Enabled only for `deepseek_server_tools` and
+    `^deepseek(-v[\d.]+)?-flash` models.
+
+- Labels `deepseek server-tools non-stream request` and
+  `deepseek server-tools stream request`
+  - Anchors: the two `chat.completions.create({ model, messages, ... })`
+    blocks.
+  - Adds `...this.#serverToolsRequest(),` (empty object when disabled).
+
+- Label `deepseek server-tools non-stream sources`
+  - Anchor: the `textResponse: this.#parseReasoningFromResponse(...)` return.
+  - Adds `sources: this.#serverToolSources(...)`.
+
+- Label `deepseek server-tools stream handler`
+  - Anchor: `handleStream(response, stream, responseProps)`.
+  - Replaces the default handler with a wrapper that observes
+    `delta.annotations`/`delta.server_tool_calls` and appends mapped sources
+    to the shared `sources` array used by the final stream chunk and the saved
+    chat.
+
+### 4. `server/index.js` (CSP)
 
 - Label `server CSP header`
   - Anchor: `  const IndexPage = new MetaGenerator();\n`
@@ -131,7 +168,7 @@ patch (#4) runs after the chat upsert; both are called out separately below.
     [`snippets/security-headers.js`](patches/snippets/security-headers.js),
     a middleware registered before `express.static` and the SPA catch-all.
 
-### 4. `workspaceChats.js` (thread activity)
+### 5. `workspaceChats.js` (thread activity)
 
 - Label `workspaceChats thread activity bump`
   - Anchor:
@@ -147,7 +184,7 @@ patch (#4) runs after the chat upsert; both are called out separately below.
     `upsert`, so both creates and updates pass through this point; the
     snippet uses `data.threadId`.
 
-### 5. Thread name length
+### 6. Thread name length
 
 - Label `workspaceThread auto-name length`
   - Anchor: `      name: truncate(prompt, 22),`
@@ -160,7 +197,7 @@ patch (#4) runs after the chat upsert; both are called out separately below.
 The UI truncates by rendered width, so a 64-character name is not displayed
 in full on narrow sidebars.
 
-### 6. `MetaGenerator.js` (manifest icons)
+### 7. `MetaGenerator.js` (manifest icons)
 
 - Label `MetaGenerator manifest output`
   - Anchor: the `const manifest = { ... }` block ending with
@@ -201,6 +238,8 @@ in full on narrow sidebars.
 - 1.19.0-ha1…ha10: initial image, storage/telemetry fixes, DeepSeek
   Search/Fetch and vision patches, CSP, thread activity, thread names, PWA
   manifest, and the UI fork (R1–R9 plus ha5–ha10 changes).
+- 1.20.0-ha2: normal-chat DeepSeek server-tools option
+  (`deepseek_server_tools`) with source mapping; agent unchanged.
 - 1.20.0-ha1: base bump to 1.20.0; removed the DeepSeek vision and search
   patches/options and the manifest route-order patch (all upstream);
   rebased the fork and dropped mobile drawer search, Agent Skills mobile,

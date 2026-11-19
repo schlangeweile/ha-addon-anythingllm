@@ -84,9 +84,11 @@ RUN rm -rf /app/server/storage \
 COPY --from=ui /src/frontend/dist /app/server/public
 
 # Local patch layer (not fully upstream): an optional DeepSeek Fetch path for
-# the agent's scrape skill (option deepseek_fetch, off by default), a
-# Content-Security-Policy for the SPA, a thread-activity timestamp update, the
-# longer auto-generated thread names and the fork's PWA icon set. Upstream
+# the agent's scrape skill (option deepseek_fetch) and DeepSeek's free
+# server-side web tools in normal chat (option deepseek_server_tools), both
+# off by default; a Content-Security-Policy for the SPA, a thread-activity
+# timestamp update, the longer auto-generated thread names and the fork's PWA
+# icon set. Upstream
 # 1.20.0 already ships DeepSeek vision and a DeepSeek agent search provider
 # (configured with AGENT_DEEPSEEK_API_KEY in the web-search settings) and
 # serves the dynamic manifest before express.static, so those former patches

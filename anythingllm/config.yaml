@@ -1,7 +1,7 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: AnythingLLM
 slug: anythingllm
-version: "1.20.0-ha1"
+version: "1.20.0-ha2"
 description: All-in-one AI chat application (AnythingLLM) with built-in RAG, embedded storage and native multi-user administration, running fully locally
 url: "https://github.com/schlangeweile/ha-addon-anythingllm/tree/master/anythingllm"
 arch:
@@ -20,15 +20,18 @@ ports:
 # Renders the "Open Web UI" button on the add-on page.
 webui: "http://[HOST]:[PORT:3001]"
 
-# Optional local DeepSeek Fetch path (experimental patch in the image).
-# deepseek_fetch uses DeepSeek's Fetch API for the agent's scrape skill and
-# needs DEEPSEEK_API_KEY (configure the DeepSeek LLM provider). DeepSeek web
-# search is built in since AnythingLLM 1.20: select DeepSeek as the agent
-# search provider and set its own AGENT_DEEPSEEK_API_KEY in the web UI.
+# Optional DeepSeek integrations (experimental patches in the image).
+# deepseek_server_tools uses DeepSeek's free server-side web tools
+# (deepseek_web_search, deepseek_read_url) in NORMAL chat. They only work with
+# flash models and cannot be combined with agent tools; the agent keeps its
+# Search/Fetch provider. deepseek_fetch uses the billed Fetch API for the
+# agent's scrape skill. Both need DEEPSEEK_API_KEY.
 options:
+  deepseek_server_tools: false
   deepseek_fetch: false
 
 schema:
+  deepseek_server_tools: bool
   deepseek_fetch: bool
 
 image: "ghcr.io/schlangeweile/{arch}-addon-anythingllm"
