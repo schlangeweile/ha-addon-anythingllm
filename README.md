@@ -12,11 +12,11 @@ It targets devices like the **Hardkernel Odroid N2+** and Raspberry Pi 4/5
 official multi-arch AnythingLLM image: no external database, no object
 storage, no extra services - SQLite and the LanceDB vector store are
 embedded, and all state persists on the add-on's data volume. DeepSeek web
-search and image attachments are built in since 1.20; the image keeps an
-optional local Fetch patch (off by default) for the agent's scrape skill.
-See below.
+search and image attachments are built in since 1.20; the image adds an
+optional free DeepSeek server-side search mode for normal chat and an optional
+Fetch patch for the agent's scrape skill (both off by default). See below.
 
-> **Status:** experimental, but verified on amd64. The 1.20.0-ha1 image
+> **Status:** experimental, but verified on amd64. The 1.20.0-ha2 image
 > passes a 14/14 API smoke test (boot, multi-user bootstrap, provider config,
 > document upload + embedding, streaming chat, automatic thread names, thread
 > activity, PWA manifest and CSP) and a 24/24 UI smoke on desktop 1440x900
@@ -24,7 +24,9 @@ See below.
 > thread row, show-older limit, preserved line breaks, always-visible
 > actions, workspace collapse/expand, search dismissal and no page errors.
 > Container recreation keeps the database, runtime `.env`/JWT, workspaces and
-> chats; the DeepSeek Fetch patch was exercised through a mock API.
+> chats; the DeepSeek Fetch and server-tools patches were exercised through
+> mock APIs (server tools 8/8: request tools on/off, image still sent, sources
+> in stream, saved chat and UI).
 > The arm64 base image was re-scanned statically for ARMv8.0 and Node 24.22.2,
 > LanceDB 0.30 (including a real table create), the Prisma query engine,
 > canvas, sharp, onnxruntime, mdpdf and the bundled Chromium 119 run under
@@ -32,19 +34,19 @@ See below.
 > hardware is still pending - see the add-on changelog for details.
 > RAM: the last measurement was ~290 MiB idle on amd64 (1.19.0-ha1); no new
 > measurement was taken for 1.20.0 because the embedded stack is unchanged.
-> The add-on layer is at **1.20.0-ha1** (AnythingLLM **1.20.0**): upstream
+> The add-on layer is at **1.20.0-ha2** (AnythingLLM **1.20.0**): upstream
 > now ships the DeepSeek vision and web-search work, the dynamic PWA
 > manifest, the mobile sidebar search, the live thinking timer and the
 > responsive table/settings CSS, so the add-on patch/fork surface is smaller
-> than in 1.19.0. The add-on keeps the optional DeepSeek Fetch patch, the
-> CSP, thread activity/name handling, the PWA icon set and the remaining UI
-> fork improvements (thread limit, collapse, search dismissal, token
-> metrics, context label, line breaks, wake lock).
+> than in 1.19.0. The add-on keeps the optional DeepSeek server-tools and
+> Fetch patches, the CSP, thread activity/name handling, the PWA icon set and
+> the remaining UI fork improvements (thread limit, collapse, search
+> dismissal, token metrics, context label, line breaks, wake lock).
 
 | Architecture | Status |
 | ------------ | ------ |
 | aarch64 (ARMv8.0) | 1.20.0 base statically scanned; native modules emulated on cortex-a53; on-device test pending |
-| amd64        | 1.20.0-ha1 API 14/14, UI 24/24 (desktop/mobile), persistence and DeepSeek Fetch smoke passed |
+| amd64        | 1.20.0-ha1 API 14/14, UI 24/24 (desktop/mobile), persistence; 1.20.0-ha2 server-tools 8/8 and UI sources passed |
 
 ## Requirements
 
@@ -67,9 +69,10 @@ See below.
   roles and per-workspace access are managed from the admin dashboard.
 - **Local-first:** only the model endpoints (and optional search providers)
   you configure are contacted.
-- **DeepSeek:** built-in web search and image attachments for
-  `deepseek-flash` since 1.20; the add-on adds an optional Fetch path for
-  the agent's scrape skill.
+- **DeepSeek:** built-in agent web search and image attachments for
+  `deepseek-flash` since 1.20; the add-on adds an optional **free
+  server-side search/URL reading in normal chat** and an optional Fetch path
+  for the agent's scrape skill.
 - **UI refinements from the add-on fork:** configurable thread limit with
   "show older", newest-first order by activity, collapsible workspaces,
   dismissible sidebar search, token usage and `model · workspace` context
@@ -83,6 +86,11 @@ See below.
   HTTP (Serper, SerpAPI, Brave, Bing, SearXNG, Tavily, DeepSeek, ...). It
   works in this add-on. DeepSeek is built in since 1.20: select it under
   *Agent Skills -> Web Search* and set its own `AGENT_DEEPSEEK_API_KEY`.
+- **Optional, experimental:** enable `deepseek_server_tools` to let DeepSeek
+  search the web and read URLs **inside normal chat**; those server-side
+  searches are not billed, only model tokens. It needs a DeepSeek flash model
+  and does not apply to the agent (DeepSeek cannot combine the server tools
+  with function tools).
 - **Optional, experimental:** enable `deepseek_fetch` in the add-on
   configuration to let the agent's "Scrape websites" skill fetch single
   URLs through DeepSeek's Fetch API instead of the local Chromium. It is
@@ -116,7 +124,7 @@ anchors and the upstream-bump checklist is in
 | Storage  | everything persists on the add-on `/data` volume              |
 | Database | embedded SQLite + LanceDB (no external DB)                    |
 | Services | upstream entrypoint runs the app and its document collector    |
-| Config   | web UI, plus one optional DeepSeek Fetch toggle               |
+| Config   | web UI, plus two optional DeepSeek toggles                    |
 
 One container, one exposed port; no Redis, PostgreSQL, Meilisearch or object
 storage is involved. The upstream entrypoint runs the web app and the
@@ -167,8 +175,8 @@ those two versions drift apart.
 The add-on patches are pinned to AnythingLLM 1.20.0; on an upstream bump the
 patcher must be re-checked (the image build fails if an anchor moved). The
 DeepSeek Search and vision patches are gone because upstream implements
-them; only the optional Fetch patch remains. The full inventory and the bump
-checklist are in
+them; the optional Fetch and normal-chat server-tools patches remain. The
+full inventory and the bump checklist are in
 [anythingllm/PATCHES.md](anythingllm/PATCHES.md).
 
 ## Why this exists
