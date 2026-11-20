@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.20.0-ha3
+
+- Fix the agent's DeepSeek web search after the 1.20 rebase. Upstream 1.20
+  passes the **short UI `snippet`** (100-200 characters, additionally cut at
+  500) to the model instead of DeepSeek's **`summary`** (600-800 characters,
+  documented as "intended to be read by a model") and drops every result below
+  a `rerank_score` of 1.5. The agent therefore got far less content per search
+  and compensated with more searches and page fetches - the visible symptoms
+  were very long agent runs, exhausted tool-call budgets and aborted research
+  threads. The 1.19 add-on search patch sent the summary and kept all results;
+  patch #8 in `patches/apply.js` restores that payload.
+- The patch is unconditional and only touches the DeepSeek search provider
+  (`_deepSeekSearch` in `web-browsing.js`); other search providers are
+  unaffected. There is no new add-on option.
+- Fix a longstanding upstream scraping bug (present in 1.19 and 1.20, not a
+  regression): the collector's plain-HTTP fallback returned the body of a
+  404/410 error page as page content. The agent therefore believed a dead URL
+  existed and kept trying variants, and a workspace URL import would store the
+  error page as a document. Patch #9 in `patches/apply.js` makes the fallback
+  fail on any non-2xx status, so the caller reports "No URL content found".
+  The HEAD probe stays non-fatal because a 403/405 on HEAD is often legitimate
+  while GET works.
+- Verified on amd64 against the pinned 1.20.0 base image: all patch anchors
+  match; the patched search provider sends `summary` text up to 2000
+  characters for every result with a URL (no `rerank_score` filter); a local
+  HTTP test returns `success:false` for a 404 page and the Markdown for a 200
+  page through the patched collector. A real-key agent run on the Odroid N2+
+  still has to confirm the shorter tool chains.
+
 ## 1.20.0-ha2
 
 - New experimental add-on option **`deepseek_server_tools`** for the normal

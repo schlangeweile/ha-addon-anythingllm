@@ -1,4 +1,4 @@
-# Add-on patches (AnythingLLM 1.20.0-ha2)
+# Add-on patches (AnythingLLM 1.20.0-ha3)
 
 This add-on is a thin layer on the pinned upstream image
 `mintplexlabs/anythingllm:1.20.0`, plus the build-time patch layer in
@@ -12,8 +12,10 @@ The authoritative implementation of the server patches is
 time, not at runtime. Frontend changes do **not** go through this layer; they
 live in the UI fork (see "UI fork overlay" below).
 
-The anchors were re-checked against AnythingLLM 1.20.0. 1.20.0-ha2 adds the
-normal-chat DeepSeek server-tools patch (#3); the agent path is unchanged.
+The anchors were re-checked against AnythingLLM 1.20.0. 1.20.0-ha2 added the
+normal-chat DeepSeek server-tools patch (#3); 1.20.0-ha3 adds the DeepSeek
+agent-search result patch (#8), which restores the long `summary` and all hits
+that the removed 1.19 search patch used to send.
 Upstream 1.20.0 took over several former add-on patches: DeepSeek vision (#6910), the DeepSeek
 agent search provider (#6911), the dynamic PWA manifest route (#6944), the
 mobile drawer search (#7007), the Agent Skills settings button on mobile
@@ -33,12 +35,14 @@ patch layer is smaller than in 1.19.0.
 | 5 | [`snippets/thread-activity.js`](patches/snippets/thread-activity.js) | `server/models/workspaceChats.js` | Bump the thread's `lastUpdatedAt` when a chat is saved | none | Upstream bumps thread activity itself |
 | 6 | Inline anchors in `apply.js` | `server/models/workspaceThread.js`, `server/endpoints/workspaces.js` | Store auto-generated thread names up to 64 characters instead of 22, so the UI truncates by width | none | Upstream stores longer names |
 | 7 | Inline anchor in `apply.js`, [`snippets/manifest.js`](patches/snippets/manifest.js) | `server/utils/boot/MetaGenerator.js` | Emit the fork's 192/512/maskable PWA icons in the dynamic manifest | none | Upstream's generator emits a full icon set |
+| 8 | [`snippets/web-browsing-deepseek-results.js`](patches/snippets/web-browsing-deepseek-results.js) plus an inline comment anchor | `server/utils/agents/aibitat/plugins/web-browsing.js` | Send DeepSeek's long search `summary` and keep every result with a URL instead of upstream's short `snippet` and `rerank_score >= 1.5` cut-off | none | Upstream forwards the summary/all hits itself |
+| 9 | [`snippets/collector-fetch-status.js`](patches/snippets/collector-fetch-status.js) plus an inline anchor | `collector/processLink/convert/generic.js` | Fail the plain-HTTP fallback on non-2xx instead of ingesting 404/410 error pages | none | Upstream checks the response status |
 
 The Fetch patch (#1/#2) and the server-tools patch (#3) are option-controlled.
 The server-tools patch only touches the normal-chat provider; the agent uses
 `aibitat/providers/deepseek.js` and is unchanged. The CSP (#4),
-thread-activity (#5), thread-name (#6) and manifest-icon (#7) patches are
-always applied.
+thread-activity (#5), thread-name (#6), manifest-icon (#7), DeepSeek-search
+(#8) and collector-status (#9) patches are always applied.
 
 ### UI fork overlay
 
@@ -56,9 +60,10 @@ public fork `schlangeweile/anything-llm`, branch `ha-ui/v1.20.0` (upstream tag
 5. copies only `frontend/dist` over `/app/server/public` of the upstream
    image.
 
-Server, collector, Prisma engines, Chromium and the entrypoint stay upstream.
-The overlay runs before `apply.js`, so the server patches always see the
-upstream server files. The frontend build is pure JS and is not part of the
+Server, collector, Prisma engines, Chromium and the entrypoint still come
+from upstream; the patch layer below only edits individual server/collector
+files. The overlay runs before `apply.js`, so the server patches always see
+the upstream server files. The frontend build is pure JS and is not part of the
 ARMv8.0 binary scan.
 
 UI changes carried in the fork as of 1.20.0-ha1:
@@ -209,6 +214,52 @@ in full on narrow sidebars.
   - Upstream 1.20.0 already registers the manifest route before
     `express.static`, so the former route-order hunks are gone.
 
+### 8. `web-browsing.js` (DeepSeek search payload)
+
+- Label `web-browsing DeepSeek result comment`
+  - Anchor: `* Only results with a rerank_score of 1.5 or above are returned.`
+  - Replacement updates the doc comment above `_deepSeekSearch`.
+
+- Label `web-browsing DeepSeek result payload`
+  - Anchor: the `if (!(rerank_score >= 1.5)) return;` line plus the
+    `String(snippet || summary || "") ... .slice(0, 500);` block inside
+    `_deepSeekSearch`.
+  - Replacement:
+    [`snippets/web-browsing-deepseek-results.js`](patches/snippets/web-browsing-deepseek-results.js):
+    `summary || snippet` with a 2000-character cap and no `rerank_score`
+    filter (every result with a URL is kept).
+  - Why: DeepSeek's Search API documents `summary` (600-800 characters) as
+    "intended to be read by a model" and `snippet` (100-200 characters) as
+    the UI form. Upstream 1.20 sends the short snippet cut to 500 characters
+    and drops results below a rerank score of 1.5, so the agent got too little
+    content per search, needed extra searches/page fetches and exhausted its
+    tool-call budget. The removed 1.19 add-on search patch sent the summary
+    and kept all results.
+  - The `deepseek_fetch` patch (#1/#2) is separate; this patch only changes
+    the search payload, not the Fetch path.
+
+### 9. `collector/processLink/convert/generic.js` (fetch fallback status)
+
+- Label `collector fetch fallback response`
+  - Anchor: `const pageText = await fetch(link, {`
+  - Replacement renames it to `const response = await fetch(link, {`.
+
+- Label `collector fetch fallback status`
+  - Anchor: `}).then((res) => res.text());` plus the following
+    `if (captureAs === "html") return pageText;` line.
+  - Replacement:
+    [`snippets/collector-fetch-status.js`](patches/snippets/collector-fetch-status.js):
+    check `response.ok` first and throw a status error, otherwise read the
+    body. `scrapeGenericUrl` then returns `success: false` / "No URL content
+    found" instead of the site's 404 page.
+  - Why: upstream (checked in 1.19.0 and 1.20.0) ignores the HTTP status in
+    the fallback, so a dead link is treated as a real page - the agent keeps
+    guessing variants and workspace URL imports can store the error page.
+    The HEAD probe above stays non-fatal: 403/405 on HEAD is often legitimate
+    while GET works.
+  - Tested with a local HTTP server in the 1.20.0 image: 404 -> `success:false`,
+    200 -> Markdown.
+
 ## Upstream-bump checklist
 
 1. Pin the new plain version tag in `Dockerfile` (`ANYTHINGLLM_VERSION`) and
@@ -238,6 +289,10 @@ in full on narrow sidebars.
 - 1.19.0-ha1…ha10: initial image, storage/telemetry fixes, DeepSeek
   Search/Fetch and vision patches, CSP, thread activity, thread names, PWA
   manifest, and the UI fork (R1–R9 plus ha5–ha10 changes).
+- 1.20.0-ha3: DeepSeek agent-search payload patch (#8) - long `summary`
+  instead of the short `snippet`, no `rerank_score` cut-off, so a search no
+  longer burns the agent's tool-call budget; collector fallback patch (#9)
+  rejects non-2xx pages instead of ingesting error pages.
 - 1.20.0-ha2: normal-chat DeepSeek server-tools option
   (`deepseek_server_tools`) with source mapping; agent unchanged.
 - 1.20.0-ha1: base bump to 1.20.0; removed the DeepSeek vision and search

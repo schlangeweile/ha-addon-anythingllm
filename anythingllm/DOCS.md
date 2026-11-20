@@ -69,7 +69,10 @@ Two different features are easy to confuse:
   JavaScript-heavy pages and the "Website Depth" crawler do not work.
   Those attempts show a Puppeteer error in the collector log. The
   optional `deepseek_fetch` toggle lets the agent's "Scrape websites"
-  skill fetch single URLs through DeepSeek's Fetch API instead.
+  skill fetch single URLs through DeepSeek's Fetch API instead. A page that
+  answers with an HTTP error status (404, 410, ...) is reported as
+  "No URL content found" instead of being read or stored as the error page
+  (patch #9 in the image; this also covers workspace URL imports).
 
 The reduced feature set is deliberate: the alternative would be running an
 outdated Chromium without a sandbox as root. The SERP-based Web Search
@@ -88,6 +91,14 @@ in that provider's settings (the key is stored as
 `deepseek-flash` and any other model, in agent mode. DeepSeek bills the
 Search API per successful request (see their pricing page); search queries
 are sent to DeepSeek.
+
+The add-on image patches this provider so the model receives DeepSeek's long
+`summary` (up to 2000 characters per result) and every result that has a URL;
+upstream 1.20 only forwards the short UI `snippet` and silently drops results
+below a `rerank_score` of 1.5. Without the patch the agent received so little
+content per search that it needed extra searches and page fetches, which
+exhausted its tool-call budget and ended research runs early. This is a local
+patch (#8, see PATCHES.md), not upstream behaviour.
 
 ### Free DeepSeek server-side web tools in normal chat (experimental)
 
@@ -402,6 +413,14 @@ instead, or a separate Ollama server on capable hardware.
   DeepSeek LLM key. In normal chat, enable `deepseek_server_tools` and use a
   DeepSeek flash model; the option does nothing in agent mode or for
   non-flash models.
+- **Agent search stops early or burns many tool calls**: the agent may chain
+  at most *Admin -> Agents -> Max Tool Calls* tool calls per answer (default
+  10). DeepSeek's search is patched to send long summaries and all hits, so a
+  normal search should not need many follow-up fetches; if a task still needs
+  more steps, raise the limit deliberately instead of setting it very high.
+  Extremely long runs also accumulate a large prompt (the DeepSeek provider
+  advertises a 1M-token context window, so nothing is truncated); split big
+  research tasks into several threads.
 - **DeepSeek server tools are rejected**: use the model alias
   `deepseek-flash` instead of a dated snapshot, or disable
   `deepseek_server_tools` and keep the agent's Search/Fetch provider.

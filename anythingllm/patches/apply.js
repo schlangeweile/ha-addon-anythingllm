@@ -26,6 +26,11 @@
  *      (store up to 64 characters of an auto-generated thread name and let
  *      the UI truncate by rendered width)
  *   7. server/utils/boot/MetaGenerator.js (emit the UI fork's PWA icon set)
+ *   8. server/utils/agents/aibitat/plugins/web-browsing.js (give the agent
+ *      DeepSeek's long search summary and all hits again, so a search does not
+ *      burn the tool-call budget on follow-up searches and page fetches)
+ *   9. collector/processLink/convert/generic.js (reject non-2xx pages in the
+ *      plain-HTTP fallback instead of ingesting the site's error page)
  *
  * Upstream 1.20.0 now ships the DeepSeek vision support and the DeepSeek
  * agent search provider that earlier add-on versions patched in; those
@@ -276,5 +281,58 @@ metaGenerator = replaceOnce(
   "MetaGenerator manifest output"
 );
 writeApp("server/utils/boot/MetaGenerator.js", metaGenerator);
+
+// 8. Restore the agent's DeepSeek search payload. Upstream 1.20 only keeps
+//    results with rerank_score >= 1.5 and forwards the short UI `snippet`
+//    (cut at 500 chars) instead of the 600-800 char `summary`, which DeepSeek
+//    documents as "intended to be read by a model". The agent then gets too
+//    little context per search and compensates with more searches and page
+//    fetches, which shows up as very long agent runs, exhausted tool-call
+//    budgets and aborted research threads. The 1.19 add-on patch sent the
+//    summary and kept every result with a URL; this restores that behaviour.
+let webBrowsing = readApp(
+  "server/utils/agents/aibitat/plugins/web-browsing.js"
+);
+webBrowsing = replaceOnce(
+  webBrowsing,
+  `              // DeepSeek considers a rerank_score of 1.5+ (out of 3) a high-quality result.
+              // https://api-docs.deepseek.com/guides/search#response
+              if (!(rerank_score >= 1.5)) return;
+              const text = String(snippet || summary || "")
+                .replace(/\\s+/g, " ")
+                .trim()
+                .slice(0, 500);`,
+  readSnippet("web-browsing-deepseek-results.js").trimEnd(),
+  "web-browsing DeepSeek result payload"
+);
+webBrowsing = replaceOnce(
+  webBrowsing,
+  "           * Only results with a rerank_score of 1.5 or above are returned.",
+  "           * Every result with a URL is returned with DeepSeek's long summary.",
+  "web-browsing DeepSeek result comment"
+);
+writeApp("server/utils/agents/aibitat/plugins/web-browsing.js", webBrowsing);
+
+// 9. Reject non-2xx pages in the collector's plain-HTTP fallback. Upstream
+//    (since at least 1.19) returns the body of a 404/410 error page as page
+//    content, so the agent and workspace URL ingestion treat a dead link as a
+//    real page and keep retrying URL variants. Fail with the status instead;
+//    the caller then reports "No URL content found". Only the fetch fallback
+//    is patched - the HEAD probe may legitimately fail (403/405) while GET
+//    works, so it stays non-fatal.
+let collectorGeneric = readApp("collector/processLink/convert/generic.js");
+collectorGeneric = replaceOnce(
+  collectorGeneric,
+  "    const pageText = await fetch(link, {",
+  "    const response = await fetch(link, {",
+  "collector fetch fallback response"
+);
+collectorGeneric = replaceOnce(
+  collectorGeneric,
+  '    }).then((res) => res.text());\n    if (captureAs === "html") return pageText;',
+  readSnippet("collector-fetch-status.js").trimEnd(),
+  "collector fetch fallback status"
+);
+writeApp("collector/processLink/convert/generic.js", collectorGeneric);
 
 console.log("[addon-patch] done");

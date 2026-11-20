@@ -26,7 +26,10 @@ Fetch patch for the agent's scrape skill (both off by default). See below.
 > Container recreation keeps the database, runtime `.env`/JWT, workspaces and
 > chats; the DeepSeek Fetch and server-tools patches were exercised through
 > mock APIs (server tools 8/8: request tools on/off, image still sent, sources
-> in stream, saved chat and UI).
+> in stream, saved chat and UI). The 1.20.0-ha3 image only changes the
+> agent's DeepSeek search payload and the collector's HTTP fallback status
+> handling (see below); the UI is unchanged, so the ha2 UI smoke still
+> applies.
 > The arm64 base image was re-scanned statically for ARMv8.0 and Node 24.22.2,
 > LanceDB 0.30 (including a real table create), the Prisma query engine,
 > canvas, sharp, onnxruntime, mdpdf and the bundled Chromium 119 run under
@@ -34,19 +37,21 @@ Fetch patch for the agent's scrape skill (both off by default). See below.
 > hardware is still pending - see the add-on changelog for details.
 > RAM: the last measurement was ~290 MiB idle on amd64 (1.19.0-ha1); no new
 > measurement was taken for 1.20.0 because the embedded stack is unchanged.
-> The add-on layer is at **1.20.0-ha2** (AnythingLLM **1.20.0**): upstream
+> The add-on layer is at **1.20.0-ha3** (AnythingLLM **1.20.0**): upstream
 > now ships the DeepSeek vision and web-search work, the dynamic PWA
 > manifest, the mobile sidebar search, the live thinking timer and the
 > responsive table/settings CSS, so the add-on patch/fork surface is smaller
 > than in 1.19.0. The add-on keeps the optional DeepSeek server-tools and
-> Fetch patches, the CSP, thread activity/name handling, the PWA icon set and
+> Fetch patches, restores DeepSeek's long search summary for the agent and
+> rejects HTTP error pages in the scraper fallback (both ha3), the CSP,
+> thread activity/name handling, the PWA icon set and
 > the remaining UI fork improvements (thread limit, collapse, search
 > dismissal, token metrics, context label, line breaks, wake lock).
 
 | Architecture | Status |
 | ------------ | ------ |
 | aarch64 (ARMv8.0) | 1.20.0 base statically scanned; native modules emulated on cortex-a53; on-device test pending |
-| amd64        | 1.20.0-ha1 API 14/14, UI 24/24 (desktop/mobile), persistence; 1.20.0-ha2 server-tools 8/8 and UI sources passed |
+| amd64        | 1.20.0-ha1 API 14/14, UI 24/24 (desktop/mobile), persistence; 1.20.0-ha2 server-tools 8/8 and UI sources passed; 1.20.0-ha3 patch anchors re-verified |
 
 ## Requirements
 
